@@ -1,0 +1,16 @@
+{
+  "watermark": {
+    "fontSizeMultiplier": 1.8,
+    "baseFontSize": 36,
+    "lineHeight": 32,
+    "spacingX": 520,
+    "spacingY": 320,
+    "angle": -30
+  },
+  "cardStyles": {
+    "headerFontSize": 16.5,
+    "bodyFontSize": 16.5,
+    "lineHeight": 24,
+    "cardPadding": 16
+  }
+}

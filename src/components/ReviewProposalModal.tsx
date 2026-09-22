@@ -34,7 +34,7 @@ export const ReviewProposalModal: React.FC<ReviewProposalModalProps> = ({
   onClose,
 }) => {
   // Draggable window state
-  const [position, setPosition] = useState({ x: window.innerWidth > 900 ? window.innerWidth - 440 : 20, y: 80 });
+  const [position, setPosition] = useState({ x: window.innerWidth > 960 ? window.innerWidth - 480 : 20, y: 80 });
   const isDragging = useRef(false);
   const dragStartOffset = useRef({ x: 0, y: 0 });
 
@@ -47,7 +47,7 @@ export const ReviewProposalModal: React.FC<ReviewProposalModalProps> = ({
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       if (!isDragging.current) return;
-      const nextX = Math.max(10, Math.min(window.innerWidth - 420, moveEvent.clientX - dragStartOffset.current.x));
+      const nextX = Math.max(10, Math.min(window.innerWidth - 440, moveEvent.clientX - dragStartOffset.current.x));
       const nextY = Math.max(60, Math.min(window.innerHeight - 300, moveEvent.clientY - dragStartOffset.current.y));
       setPosition({ x: nextX, y: nextY });
     };
@@ -68,7 +68,7 @@ export const ReviewProposalModal: React.FC<ReviewProposalModalProps> = ({
   return (
     <div
       style={{ left: `${position.x}px`, top: `${position.y}px` }}
-      className="absolute w-96 max-w-[calc(100vw-2rem)] z-40 flex flex-col bg-slate-900/95 backdrop-blur-md border border-amber-500/50 rounded-2xl shadow-2xl overflow-hidden text-xs transition-shadow"
+      className="absolute w-[440px] max-w-[calc(100vw-2rem)] z-40 flex flex-col bg-slate-900/95 backdrop-blur-md border border-amber-500/50 rounded-2xl shadow-2xl overflow-hidden text-xs transition-shadow"
       onContextMenu={e => {
         e.preventDefault();
         e.stopPropagation();
@@ -120,7 +120,7 @@ export const ReviewProposalModal: React.FC<ReviewProposalModalProps> = ({
       </div>
 
       {/* Changes List */}
-      <div className="max-h-80 overflow-y-auto p-3 space-y-2">
+      <div className="max-h-96 overflow-y-auto p-3 space-y-2.5">
         {changes.length === 0 ? (
           <div className="text-center py-6 text-slate-500 italic">
             Нет зарегистрированных предложений
@@ -128,10 +128,12 @@ export const ReviewProposalModal: React.FC<ReviewProposalModalProps> = ({
         ) : (
           changes.map(item => {
             const isProcessed = !!item.isProcessed;
+            const isEdge = item.targetType === 'edge' || item.type === 'edit_edge_badge' || item.type === 'recommend_delete_edge' || item.id.startsWith('change_edge');
+
             return (
               <div
                 key={item.id}
-                className={`p-2.5 rounded-xl border transition flex items-start gap-2.5 ${
+                className={`p-3 rounded-xl border transition flex items-start gap-2.5 ${
                   isProcessed
                     ? 'bg-slate-950/40 border-slate-800/60 opacity-50'
                     : 'bg-slate-950/80 border-slate-700 hover:border-amber-500/60'
@@ -153,33 +155,38 @@ export const ReviewProposalModal: React.FC<ReviewProposalModalProps> = ({
                 <div
                   className="flex-1 min-w-0 cursor-pointer"
                   onClick={() => {
-                    if (item.type === 'add_node' || item.type === 'edit_node_badge') {
-                      onFocusTarget(item.targetId, 'node');
-                    } else {
+                    if (isEdge) {
                       onFocusTarget(item.targetId, 'edge');
+                    } else {
+                      onFocusTarget(item.targetId, 'node');
                     }
                   }}
-                  title="Нажмите, чтобы показать на графе"
+                  title={isEdge ? "Кликните, чтобы показать на графе и открыть настройки связи" : "Кликните, чтобы показать на графе"}
                 >
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    {item.type === 'add_node' && (
-                      <span className="text-[10px] px-1 py-0.2 rounded bg-emerald-950 border border-emerald-700 text-emerald-300 flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                    {item.type === 'add_node' && !isEdge && (
+                      <span className="text-[10px] px-1 py-0.2 rounded bg-emerald-950 border border-emerald-700 text-emerald-300 flex items-center gap-1 font-semibold">
                         <PlusCircle className="w-3 h-3" /> Новый узел
                       </span>
                     )}
+                    {(item.type === 'add_node' && isEdge) && (
+                      <span className="text-[10px] px-1 py-0.2 rounded bg-teal-950 border border-teal-700 text-teal-300 flex items-center gap-1 font-semibold">
+                        <Spline className="w-3 h-3" /> Новая связь
+                      </span>
+                    )}
                     {item.type === 'edit_edge_badge' && (
-                      <span className="text-[10px] px-1 py-0.2 rounded bg-sky-950 border border-sky-700 text-sky-300 flex items-center gap-1">
-                        <Spline className="w-3 h-3" /> Связь
+                      <span className="text-[10px] px-1 py-0.2 rounded bg-sky-950 border border-sky-700 text-sky-300 flex items-center gap-1 font-semibold">
+                        <Spline className="w-3 h-3" /> Правка связи
                       </span>
                     )}
                     {item.type === 'recommend_delete_edge' && (
-                      <span className="text-[10px] px-1 py-0.2 rounded bg-rose-950 border border-rose-700 text-rose-300 flex items-center gap-1">
+                      <span className="text-[10px] px-1 py-0.2 rounded bg-rose-950 border border-rose-700 text-rose-300 flex items-center gap-1 font-semibold">
                         <Trash className="w-3 h-3" /> Удалить связь
                       </span>
                     )}
                     {item.type === 'edit_node_badge' && (
-                      <span className="text-[10px] px-1 py-0.2 rounded bg-purple-950 border border-purple-700 text-purple-300 flex items-center gap-1">
-                        <Edit3 className="w-3 h-3" /> Карточка
+                      <span className="text-[10px] px-1 py-0.2 rounded bg-purple-950 border border-purple-700 text-purple-300 flex items-center gap-1 font-semibold">
+                        <Edit3 className="w-3 h-3" /> Правка узла
                       </span>
                     )}
                     <span className={`font-bold text-xs truncate text-slate-100 ${isProcessed ? 'line-through text-slate-400' : ''}`}>
@@ -187,16 +194,96 @@ export const ReviewProposalModal: React.FC<ReviewProposalModalProps> = ({
                     </span>
                   </div>
 
-                  <p className={`text-[11px] text-slate-300 leading-tight ${isProcessed ? 'line-through text-slate-500' : ''}`}>
+                  <p className={`text-[11px] text-slate-300 leading-tight mb-1 ${isProcessed ? 'line-through text-slate-500' : ''}`}>
                     {item.description}
                   </p>
 
-                  {item.details && (
-                    <div className="mt-1 p-1.5 bg-slate-900 rounded border border-slate-800 text-[10px] text-slate-400 flex items-start gap-1 font-mono">
-                      <FileText className="w-3 h-3 shrink-0 text-slate-500 mt-0.5" />
-                      <span className="truncate">{item.details}</span>
-                    </div>
-                  )}
+                  {/* "Что было" ➔ "Что стало" Detailed Comparison (Requirement 7) */}
+                  <div className="space-y-1.5 mt-2">
+                    {/* 1. Labels Comparison */}
+                    {(item.oldLabel || item.newLabel) && (
+                      <div className="p-2 bg-slate-900/90 rounded-lg border border-slate-800 space-y-1 text-[11px]">
+                        {item.oldLabel && (
+                          <div className="text-slate-400">
+                            <span className="font-semibold text-slate-400">Старая метка:</span> <span className="text-slate-300">{item.oldLabel}</span>
+                          </div>
+                        )}
+                        {item.newLabel && (
+                          <div className="text-emerald-300">
+                            <span className="font-semibold text-emerald-400">Новая метка:</span> <span className="text-emerald-200 font-medium">{item.newLabel}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 2. Color Comparison */}
+                    {(item.oldColor || item.newColor) && (
+                      <div className="flex items-center gap-2 text-[11px] px-1">
+                        <span className="text-slate-400 font-semibold">{isEdge ? 'Цвет дуги:' : 'Цвет узла:'}</span>
+                        {item.oldColor && (
+                          <span className="text-slate-400 flex items-center gap-1">
+                            было <span className="inline-block w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: item.oldColor }} />
+                          </span>
+                        )}
+                        <span>➔</span>
+                        {item.newColor && (
+                          <span className="text-emerald-300 flex items-center gap-1 font-medium">
+                            стало <span className="inline-block w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: item.newColor }} />
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 3. Size Comparison */}
+                    {(item.oldSize || item.newSize) && (
+                      <div className="text-[11px] px-1 text-slate-300">
+                        <span className="text-slate-400 font-semibold">{isEdge ? 'Толщина:' : 'Размер:'}</span> было <span className="text-slate-400 font-mono">{item.oldSize || '—'}</span> ➔ стало <span className="text-emerald-300 font-mono font-bold">{item.newSize}</span>
+                      </div>
+                    )}
+
+                    {/* 4. Line Style Comparison */}
+                    {(item.oldStyle || item.newStyle) && (
+                      <div className="text-[11px] px-1 text-slate-300">
+                        <span className="text-slate-400 font-semibold">Стиль линии:</span> было <span className="text-slate-400">{item.oldStyle || '—'}</span> ➔ стало <span className="text-emerald-300 font-medium">{item.newStyle}</span>
+                      </div>
+                    )}
+
+                    {/* 5. Card Comparison (Old Card & New Card displayed directly) */}
+                    {(item.oldCard || item.newCard) && (
+                      <div className="space-y-1.5 pt-0.5">
+                        {item.oldCard && (
+                          <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 text-[11px]">
+                            <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                              <FileText className="w-3 h-3 text-amber-400" />
+                              {isEdge ? 'Старая карточка дуги:' : 'Старая карточка узла:'}
+                            </div>
+                            <div className="text-slate-400 whitespace-pre-wrap font-sans leading-relaxed bg-slate-900/60 p-1.5 rounded">
+                              {item.oldCard}
+                            </div>
+                          </div>
+                        )}
+                        {item.newCard && (
+                          <div className="p-2 bg-slate-900/90 rounded-lg border border-emerald-700/50 text-[11px]">
+                            <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                              <FileText className="w-3 h-3 text-emerald-400" />
+                              {isEdge ? 'Новая карточка дуги:' : 'Новая карточка узла:'}
+                            </div>
+                            <div className="text-emerald-200 whitespace-pre-wrap font-sans leading-relaxed bg-emerald-950/40 p-1.5 rounded border border-emerald-900/40">
+                              {item.newCard}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Fallback Details */}
+                    {item.details && !item.oldCard && !item.newCard && !item.oldLabel && !item.newLabel && (
+                      <div className="p-1.5 bg-slate-900 rounded border border-slate-800 text-[10px] text-slate-400 flex items-start gap-1 font-mono">
+                        <FileText className="w-3 h-3 shrink-0 text-slate-500 mt-0.5" />
+                        <span className="truncate">{item.details}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -206,7 +293,7 @@ export const ReviewProposalModal: React.FC<ReviewProposalModalProps> = ({
 
       {/* Footer Info */}
       <div className="p-2.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-        <span>Клик по строке центрирует камеру</span>
+        <span>Клик по связи открывает её меню</span>
         <span className="text-[10px] text-amber-400 font-medium">Перемещайте окно за шапку</span>
       </div>
     </div>

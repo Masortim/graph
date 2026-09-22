@@ -1,6 +1,7 @@
 import type { GraphNode, GraphEdge, GraphSettings } from '../types/graph';
 import { formatBadgeContent } from './badgeFormatter';
 import { latexToCanvasText } from './latexRenderer';
+import defaultGraphConfig from '../data/graphConfig.json';
 
 function escapeXml(unsafe: string): string {
   return unsafe
@@ -22,6 +23,20 @@ export function generateGraphSvg(
 ): string {
   if (nodes.length === 0) return '';
 
+  const nodeMap = new Map<string, GraphNode>();
+  nodes.forEach(n => nodeMap.set(n.id, n));
+
+  const defaultEdgeColor = settings.edgeColor || '#94a3b8';
+  const defaultThickness = settings.edgeThickness || 1.2;
+  const baseOpacity = settings.edgeOpacity || 0.35;
+
+  // Base card styling from config (Header -25%, Body +50%)
+  const baseCardHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
+  const baseCardBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
+  const baseLineHeight = defaultGraphConfig?.cardStyles?.lineHeight || 24;
+  const baseCardPadding = defaultGraphConfig?.cardStyles?.cardPadding || 16;
+
+  // 1. Initial bounding box of all nodes
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   nodes.forEach(n => {
     const r = n.radius || 16;
@@ -31,18 +46,98 @@ export function generateGraphSvg(
     if (n.y + r > maxY) maxY = n.y + r;
   });
 
-  const padding = 160;
+  // 2. Expand bounding box to include all pinned node badges (Fixes SVG right/bottom edge clipping bug)
+  pinnedNodeIds.forEach(nodeId => {
+    const node = nodeMap.get(nodeId);
+    if (!node || node.infoBadge?.content === undefined || node.infoBadge.content === '') return;
+
+    const scaleMul = node.badgeScale || node.infoBadge?.scale || 1.0;
+    const bodyFontSize = baseCardBodySize * scaleMul;
+    const headerFontSize = baseCardHeaderSize * scaleMul;
+    const lineHeight = baseLineHeight * scaleMul;
+    const cardPadding = baseCardPadding * scaleMul;
+    const nodeRadius = node.radius || 16;
+
+    const { lines: formattedLines, maxLineWidth } = formatBadgeContent(node.infoBadge.content, undefined, bodyFontSize);
+    const headerTitle = `${node.labelEn}${node.labelCn && node.labelCn !== node.labelEn ? ` | ${node.labelCn}` : ''}`;
+    const headerWidth = headerTitle.length * (headerFontSize * 0.58);
+    const headerHeight = headerFontSize + 6 * scaleMul;
+
+    const contentWidth = Math.max(headerWidth, maxLineWidth);
+    const cardWidth = Math.max(160 * scaleMul, contentWidth + cardPadding * 2);
+    const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
+
+    const cardX = node.x + nodeRadius + 16;
+    const cardY = node.y - 20;
+    const cardRight = cardX + cardWidth;
+    const cardBottom = cardY + cardHeight;
+
+    if (cardX < minX) minX = cardX;
+    if (cardRight > maxX) maxX = cardRight;
+    if (cardY < minY) minY = cardY;
+    if (cardBottom > maxY) maxY = cardBottom;
+  });
+
+  // 3. Expand bounding box to include all pinned edge badges
+  pinnedEdgeIds.forEach(edgeId => {
+    const edge = edges.find(e => e.id === edgeId);
+    if (!edge || !edge.infoBadge?.content) return;
+
+    const src = nodeMap.get(edge.source);
+    const tgt = nodeMap.get(edge.target);
+    if (!src || !tgt) return;
+
+    const midX = (src.x + tgt.x) / 2;
+    const midY = (src.y + tgt.y) / 2;
+
+    const scaleMul = edge.badgeScale !== undefined 
+      ? edge.badgeScale 
+      : (edge.infoBadge?.scale !== undefined ? edge.infoBadge.scale : 1.0);
+
+    const bodyFontSize = baseCardBodySize * scaleMul;
+    const headerFontSize = baseCardHeaderSize * scaleMul;
+    const lineHeight = baseLineHeight * scaleMul;
+    const cardPadding = baseCardPadding * scaleMul;
+
+    const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;
+    const secondNode = firstNode === src ? tgt : src;
+    const edgeLang = edge.badgeLanguage || 'cn';
+    const label1 = edgeLang === 'en' ? firstNode.labelEn : (firstNode.labelCn || firstNode.labelEn);
+    const label2 = edgeLang === 'en' ? secondNode.labelEn : (secondNode.labelCn || secondNode.labelEn);
+    const headerTitle = `${label1} ↔ ${label2}`;
+
+    const headerWidth = headerTitle.length * (headerFontSize * 0.58);
+    const headerHeight = headerFontSize + 6 * scaleMul;
+    const maxWrapWidth = Math.max(180 * scaleMul, headerWidth);
+
+    const { lines: formattedLines, maxLineWidth } = formatBadgeContent(edge.infoBadge.content, undefined, bodyFontSize, maxWrapWidth);
+    const contentWidth = Math.max(headerWidth, maxLineWidth);
+    const cardWidth = Math.max(160 * scaleMul, contentWidth + cardPadding * 2);
+    const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
+
+    const cardX = midX + 12 * scaleMul;
+    const cardY = midY - cardHeight / 2;
+    const cardRight = cardX + cardWidth;
+    const cardBottom = cardY + cardHeight;
+
+    if (cardX < minX) minX = cardX;
+    if (cardRight > maxX) maxX = cardRight;
+    if (cardY < minY) minY = cardY;
+    if (cardBottom > maxY) maxY = cardBottom;
+  });
+
+  const padding = 200;
   const viewX = Math.floor(minX - padding);
   const viewY = Math.floor(minY - padding);
   const viewWidth = Math.ceil(maxX - minX + padding * 2);
   const viewHeight = Math.ceil(maxY - minY + padding * 2);
 
-  const nodeMap = new Map<string, GraphNode>();
-  nodes.forEach(n => nodeMap.set(n.id, n));
-
-  const defaultEdgeColor = settings.edgeColor || '#94a3b8';
-  const defaultThickness = settings.edgeThickness || 1.2;
-  const baseOpacity = settings.edgeOpacity || 0.35;
+  // Watermark parameters (180% font size, consistent line spacing)
+  const wmMultiplier = defaultGraphConfig?.watermark?.fontSizeMultiplier || 1.8;
+  const wmLine1Size = (20 * wmMultiplier).toFixed(1); // 36px
+  const wmLine2Size = (15 * wmMultiplier).toFixed(1); // 27px
+  const wmLine3Size = (14 * wmMultiplier).toFixed(1); // 25.2px
+  const wmLine4Size = (13 * wmMultiplier).toFixed(1); // 23.4px
 
   let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewX} ${viewY} ${viewWidth} ${viewHeight}" width="${viewWidth}" height="${viewHeight}" style="background-color: #0a0d14; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif;">
@@ -53,12 +148,12 @@ export function generateGraphSvg(
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
 
-    <!-- Diagonal Repeating Watermark Pattern (All Caps with 110% © size) -->
+    <!-- Diagonal Repeating Watermark Pattern (180% Font Size, 110% © symbol height, -30deg angle) -->
     <pattern id="diagonalWatermark" width="520" height="320" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
-      <text x="30" y="60" font-size="20px" font-weight="900" fill="#ffffff" fill-opacity="0.08" letter-spacing="2.5px" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">LINEAR ALGEBRA</text>
-      <text x="30" y="92" font-size="15px" font-weight="700" fill="#ffffff" fill-opacity="0.08" letter-spacing="1.5px" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">NOVOSIBIRSK STATE UNIVERSITY</text>
-      <text x="30" y="120" font-size="14px" font-weight="600" fill="#ffffff" fill-opacity="0.08" letter-spacing="1.2px" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"><tspan font-size="110%">©</tspan> KORIAKIN R.A. <tspan font-size="110%">©</tspan> ULYANOV A.P.</text>
-      <text x="30" y="146" font-size="13px" font-weight="600" fill="#ffffff" fill-opacity="0.08" letter-spacing="1px" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"><tspan font-size="110%">©</tspan> ALL RIGHTS RESERVED</text>
+      <text x="30" y="60" font-size="${wmLine1Size}px" font-weight="900" fill="#ffffff" fill-opacity="0.08" letter-spacing="2.5px" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">LINEAR ALGEBRA</text>
+      <text x="30" y="92" font-size="${wmLine2Size}px" font-weight="700" fill="#ffffff" fill-opacity="0.08" letter-spacing="1.5px" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">NOVOSIBIRSK STATE UNIVERSITY</text>
+      <text x="30" y="120" font-size="${wmLine3Size}px" font-weight="600" fill="#ffffff" fill-opacity="0.08" letter-spacing="1.2px" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"><tspan font-size="110%">©</tspan> KORIAKIN R.A. <tspan font-size="110%">©</tspan> ULYANOV A.P.</text>
+      <text x="30" y="146" font-size="${wmLine4Size}px" font-weight="600" fill="#ffffff" fill-opacity="0.08" letter-spacing="1px" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"><tspan font-size="110%">©</tspan> ALL RIGHTS RESERVED</text>
     </pattern>
   </defs>
 
@@ -78,7 +173,7 @@ export function generateGraphSvg(
   <g id="edges">
 `;
 
-  // Draw Edges with individual colors, thickness, and dashed styling
+  // Draw Edges
   edges.forEach(edge => {
     const src = nodeMap.get(edge.source);
     const tgt = nodeMap.get(edge.target);
@@ -151,11 +246,11 @@ export function generateGraphSvg(
     const nodeRadius = node.radius || 16;
     
     const scaleMul = node.badgeScale || node.infoBadge?.scale || 1.0;
-    const bodyFontSize = 11 * scaleMul;
-    const headerFontSize = bodyFontSize * 2; // 2x body text font size & bold
-    const lineHeight = 16 * scaleMul;
+    const bodyFontSize = baseCardBodySize * scaleMul;
+    const headerFontSize = baseCardHeaderSize * scaleMul;
+    const lineHeight = baseLineHeight * scaleMul;
     const sqSize = bodyFontSize * 1.25;
-    const cardPadding = 14 * scaleMul;
+    const cardPadding = baseCardPadding * scaleMul;
 
     const { lines: formattedLines, maxLineWidth } = formatBadgeContent(badgeRawContent, undefined, bodyFontSize);
 
@@ -164,7 +259,7 @@ export function generateGraphSvg(
     const headerHeight = headerFontSize + 6 * scaleMul;
 
     const contentWidth = Math.max(headerWidth, maxLineWidth);
-    const cardWidth = Math.max(140 * scaleMul, contentWidth + cardPadding * 2);
+    const cardWidth = Math.max(160 * scaleMul, contentWidth + cardPadding * 2);
     const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
 
     const cardX = node.x + nodeRadius + 16;
@@ -176,7 +271,7 @@ export function generateGraphSvg(
     // Card background
     svgContent += `    <rect x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}" rx="${(8 * scaleMul).toFixed(1)}" ry="${(8 * scaleMul).toFixed(1)}" fill="#0f172a" fill-opacity="0.95" stroke="${node.color}" stroke-width="${(1.8 * scaleMul).toFixed(1)}" />\n`;
 
-    // Header title (2x size & bold)
+    // Header title
     svgContent += `    <text x="${(cardX + cardPadding).toFixed(1)}" y="${(cardY + cardPadding + headerFontSize * 0.85).toFixed(1)}" font-size="${headerFontSize.toFixed(1)}px" font-weight="bold" fill="${node.color}">${escapeXml(headerTitle)}</text>\n`;
 
     // Header Separator Line
@@ -211,7 +306,7 @@ export function generateGraphSvg(
 
   svgContent += `  </g>\n\n  <!-- Pinned Edge Information Badges Layer (Rectangular rx=0) -->\n  <g id="pinned-edge-badges">\n`;
 
-  // Draw Pinned Edge Information Badges with automatic header, text wrapping & symmetric margin
+  // Draw Pinned Edge Information Badges
   pinnedEdgeIds.forEach(edgeId => {
     const edge = edges.find(e => e.id === edgeId);
     if (!edge || !edge.infoBadge?.content) return;
@@ -228,11 +323,11 @@ export function generateGraphSvg(
       ? edge.badgeScale 
       : (edge.infoBadge?.scale !== undefined ? edge.infoBadge.scale : 1.0);
 
-    const bodyFontSize = 11 * scaleMul;
-    const headerFontSize = bodyFontSize * 2;
-    const lineHeight = 16 * scaleMul;
+    const bodyFontSize = baseCardBodySize * scaleMul;
+    const headerFontSize = baseCardHeaderSize * scaleMul;
+    const lineHeight = baseLineHeight * scaleMul;
     const sqSize = bodyFontSize * 1.25;
-    const cardPadding = 14 * scaleMul;
+    const cardPadding = baseCardPadding * scaleMul;
 
     const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;
     const secondNode = firstNode === src ? tgt : src;
@@ -244,12 +339,12 @@ export function generateGraphSvg(
 
     const headerWidth = headerTitle.length * (headerFontSize * 0.58);
     const headerHeight = headerFontSize + 6 * scaleMul;
-    const maxWrapWidth = Math.max(160 * scaleMul, headerWidth);
+    const maxWrapWidth = Math.max(180 * scaleMul, headerWidth);
 
     const { lines: formattedLines, maxLineWidth } = formatBadgeContent(edge.infoBadge.content, undefined, bodyFontSize, maxWrapWidth);
 
     const contentWidth = Math.max(headerWidth, maxLineWidth);
-    const cardWidth = Math.max(140 * scaleMul, contentWidth + cardPadding * 2);
+    const cardWidth = Math.max(160 * scaleMul, contentWidth + cardPadding * 2);
     const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
 
     const cardX = midX + 12 * scaleMul;
@@ -258,7 +353,7 @@ export function generateGraphSvg(
     // Connector dashed line
     svgContent += `    <line x1="${midX.toFixed(1)}" y1="${midY.toFixed(1)}" x2="${cardX.toFixed(1)}" y2="${(cardY + cardPadding + headerFontSize / 2).toFixed(1)}" stroke="${strokeColor}" stroke-width="${(1.4 * scaleMul).toFixed(1)}" stroke-dasharray="2,2" />\n`;
 
-    // Rectangular card background (rx="0") with border matching edge color
+    // Rectangular card background (rx="0")
     svgContent += `    <rect x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}" rx="0" ry="0" fill="#0f172a" fill-opacity="0.95" stroke="${strokeColor}" stroke-width="${(1.8 * scaleMul).toFixed(1)}" />\n`;
 
     // Header title

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { GraphNode } from '../types/graph';
+import type { GraphNode, AppMode } from '../types/graph';
 import { findPhraseMatchesInGraph } from '../utils/phraseMatcher';
 import { X, Plus, Tag, Sparkles, CheckCircle, Info, Palette } from 'lucide-react';
 
@@ -13,6 +13,7 @@ interface CreateNodeModalProps {
     infoText: string | undefined,
     color: string
   ) => void;
+  mode?: AppMode;
 }
 
 const PRESET_COLORS = [
@@ -31,7 +32,10 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
   nodes,
   onClose,
   onCreateNode,
+  mode = 'author',
 }) => {
+  const isAssistant = mode === 'assistant';
+
   const [labelEn, setLabelEn] = useState('');
   const [labelCn, setLabelCn] = useState('');
   const [phraseInput, setPhraseInput] = useState('');
@@ -83,15 +87,19 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-xs">
         <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Создать новый узел</h2>
-              <p className="text-xs text-slate-400">Добавьте ключевые фразы для семантической привязки к заметкам</p>
+              <h2 className="text-base font-bold text-slate-100">
+                {isAssistant ? 'Create New Concept Node' : 'Создать новый узел'}
+              </h2>
+              <p className="text-xs text-slate-400">
+                {isAssistant ? 'Add title, color and key phrases for semantic linking' : 'Добавьте ключевые фразы для семантической привязки к заметкам'}
+              </p>
             </div>
           </div>
           <button
@@ -102,11 +110,11 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">
-                Метка на английском (English Label) <span className="text-red-400">*</span>
+                {isAssistant ? 'English Label' : 'Метка на английском (English Label)'} <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
@@ -120,7 +128,7 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
 
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">
-                Метка на китайском (中文 Label)
+                {isAssistant ? 'Chinese Label (中文)' : 'Метка на китайском (中文 Label)'}
               </label>
               <input
                 type="text"
@@ -135,7 +143,7 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">
               <Palette className="w-3.5 h-3.5 text-amber-400" />
-              Цвет узла:
+              {isAssistant ? 'Node Color:' : 'Цвет узла:'}
             </label>
             <div className="flex items-center gap-2 flex-wrap">
               {PRESET_COLORS.map(c => (
@@ -154,23 +162,23 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
                 value={selectedColor}
                 onChange={e => setSelectedColor(e.target.value)}
                 className="w-6 h-6 rounded cursor-pointer bg-transparent border-0"
-                title="Выбрать свой цвет"
+                title={isAssistant ? "Choose custom color" : "Выбрать свой цвет"}
               />
             </div>
           </div>
 
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
             <label className="block text-xs font-semibold text-amber-400 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5" /> Ключевые фразы для поиска вхождений
+              <Tag className="w-3.5 h-3.5" /> {isAssistant ? 'Key Phrases for Occurrence Search' : 'Ключевые фразы для поиска вхождений'}
             </label>
             <p className="text-[11px] text-slate-400 leading-tight">
-              Введите ключевую фразу и нажмите <kbd className="px-1 py-0.5 bg-slate-800 rounded text-[10px] text-slate-300">Enter</kbd> или кнопку «+». Поиск нечувствителен к регистру.
+              {isAssistant ? 'Enter key phrases and press Enter or click "+". Search is case-insensitive.' : 'Введите ключевую фразу и нажмите Enter или кнопку «+». Поиск нечувствителен к регистру.'}
             </p>
 
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Введите фразу (например: gradient descent, chain rule)..."
+                placeholder={isAssistant ? "e.g. gradient descent, chain rule..." : "Введите фразу (например: gradient descent, chain rule)..."}
                 value={phraseInput}
                 onChange={e => setPhraseInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -181,7 +189,7 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
                 onClick={handleAddPhrase}
                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1"
               >
-                <Plus className="w-3.5 h-3.5" /> Добавить
+                <Plus className="w-3.5 h-3.5" /> {isAssistant ? 'Add' : 'Добавить'}
               </button>
             </div>
 
@@ -211,16 +219,16 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-slate-300 flex items-center gap-1.5 text-xs">
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                  Результаты сканирования заметок
+                  {isAssistant ? 'Note Scan Results' : 'Результаты сканирования заметок'}
                 </span>
                 <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-800/50 rounded text-[11px] font-bold">
-                  {totalMatchesCount} совпадений в {matchResults.length} узлах
+                  {totalMatchesCount} {isAssistant ? 'matches in' : 'совпадений в'} {matchResults.length} {isAssistant ? 'nodes' : 'узлах'}
                 </span>
               </div>
 
               {matchResults.length === 0 ? (
                 <p className="text-slate-500 italic text-[11px]">
-                  Пока не найдено совпадений по этим фразам в текстах секций. Вы всё равно можете создать узел.
+                  {isAssistant ? 'No matches found yet in section texts.' : 'Пока не найдено совпадений по этим фразам в текстах секций.'}
                 </p>
               ) : (
                 <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
@@ -233,7 +241,7 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
                         {r.nodeLabelEn} {r.nodeLabelCn && <span className="text-slate-500">({r.nodeLabelCn})</span>}
                       </span>
                       <span className="text-amber-400 font-semibold shrink-0">
-                        {r.totalCount} {r.totalCount === 1 ? 'вхождение' : 'вхождений'}
+                        {r.totalCount} {isAssistant ? 'matches' : (r.totalCount === 1 ? 'вхождение' : 'вхождений')}
                       </span>
                     </div>
                   ))}
@@ -244,14 +252,14 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
 
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
             <label className="block text-xs font-semibold text-blue-400 flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5" /> Информационная табличка (необязательно)
+              <Info className="w-3.5 h-3.5" /> {isAssistant ? 'Information Note (Optional)' : 'Информационная табличка (необязательно)'}
             </label>
             <p className="text-[11px] text-slate-400">
-              Текст, который будет прикреплён к узлу и высвечиваться при клике мыши.
+              {isAssistant ? 'Content that will be pinned to this node and shown on double-click.' : 'Текст, который будет прикреплён к узлу и высвечиваться при клике мыши.'}
             </p>
             <textarea
               rows={3}
-              placeholder="Добавьте краткое описание, свойства или заметки к этому узлу..."
+              placeholder={isAssistant ? "Add brief description, mathematical properties, or notes..." : "Добавьте краткое описание, свойства или заметки к этому узлу..."}
               value={infoText}
               onChange={e => setInfoText(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-y"
@@ -264,14 +272,14 @@ export const CreateNodeModal: React.FC<CreateNodeModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
             >
-              Отмена
+              {isAssistant ? 'Cancel' : 'Отмена'}
             </button>
             <button
               type="submit"
               disabled={!labelEn.trim()}
               className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-bold text-xs shadow-lg transition flex items-center gap-1.5"
             >
-              <Sparkles className="w-3.5 h-3.5" /> Создать узел и встроить в граф
+              <Sparkles className="w-3.5 h-3.5" /> {isAssistant ? 'Create Concept Node' : 'Создать узел и встроить в граф'}
             </button>
           </div>
         </form>

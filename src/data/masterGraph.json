@@ -1,0 +1,669 @@
+{
+  "version": "2.4.0",
+  "name": "Linear Algebra NSU - Master Graph",
+  "vaultName": "Linear Algebra NSU",
+  "createdAt": "2026-09-18T17:43:08.382Z",
+  "updatedAt": "2026-09-18T17:43:08.382Z",
+  "nodes": [
+    {
+      "id": "ch_1",
+      "labelEn": "Chapter 1: Vector Spaces & Subspaces",
+      "labelCn": "第1章：向量空间与子空间",
+      "type": "chapter",
+      "level": 1,
+      "clusterId": "ch_1",
+      "x": -380,
+      "y": -220,
+      "vx": 0,
+      "vy": 0,
+      "radius": 36,
+      "baseRadius": 36,
+      "weight": 12,
+      "color": "#38bdf8",
+      "connectedCount": 5,
+      "frequency": 18,
+      "sizeLevel": 7,
+      "infoBadge": {
+        "content": "🟨 **Vector Space Axioms**: Closed under addition and scalar multiplication $\\alpha \\mathbf{u} + \\beta \\mathbf{v} \\in V$.\n🟦 Subspaces: $W \\subseteq V$ where $\\mathbf{0} \\in W$.\n🟩 Basis & Dimension: Minimal spanning set $\\dim(V) = n$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1,
+        "language": "cn"
+      }
+    },
+    {
+      "id": "sec_1_1",
+      "labelEn": "Linear Independence & Span",
+      "labelCn": "线性无关与张成空间",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_1",
+      "chapterId": "ch_1",
+      "x": -460,
+      "y": -110,
+      "vx": 0,
+      "vy": 0,
+      "radius": 26,
+      "baseRadius": 26,
+      "weight": 8,
+      "color": "#38bdf8",
+      "connectedCount": 4,
+      "frequency": 14,
+      "sizeLevel": 5,
+      "keyPhrases": [
+        "linear independence",
+        "linear span",
+        "basis vectors"
+      ],
+      "infoBadge": {
+        "content": "🟨 **Independence**: $\\sum c_i \\mathbf{v}_i = \\mathbf{0} \\implies c_i = 0$.\n🟦 **Span**: $\\operatorname{span}(\\mathbf{v}_1, \\dots, \\mathbf{v}_k) = \\{ \\sum c_i \\mathbf{v}_i \\}$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_1_2",
+      "labelEn": "Basis and Dimension",
+      "labelCn": "基与维数",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_1",
+      "chapterId": "ch_1",
+      "x": -320,
+      "y": -90,
+      "vx": 0,
+      "vy": 0,
+      "radius": 28,
+      "baseRadius": 28,
+      "weight": 9,
+      "color": "#38bdf8",
+      "connectedCount": 5,
+      "frequency": 16,
+      "sizeLevel": 5,
+      "keyPhrases": [
+        "basis",
+        "dimension",
+        "coordinates"
+      ],
+      "infoBadge": {
+        "content": "🟨 A basis $\\mathcal{B}$ is a linearly independent spanning set.\n🟦 Coordinates $[\\mathbf{x}]_\\mathcal{B}$ uniquely identify vectors in $\\mathbb{R}^n$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "ch_2",
+      "labelEn": "Chapter 2: Matrices & Linear Systems",
+      "labelCn": "第2章：矩阵代数与线性方程组",
+      "type": "chapter",
+      "level": 1,
+      "clusterId": "ch_2",
+      "x": 10,
+      "y": -240,
+      "vx": 0,
+      "vy": 0,
+      "radius": 38,
+      "baseRadius": 38,
+      "weight": 14,
+      "color": "#fbbf24",
+      "connectedCount": 6,
+      "frequency": 24,
+      "sizeLevel": 8,
+      "infoBadge": {
+        "content": "🟨 **System**: $A\\mathbf{x} = \\mathbf{b}$ where $A \\in \\mathbb{R}^{m \\times n}$.\n🟦 Gaussian elimination and row echelon forms.\n🟩 Invertibility: $\\det(A) \\neq 0 \\iff A^{-1}$ exists.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_2_1",
+      "labelEn": "Gaussian Elimination & Rank",
+      "labelCn": "高斯消元法与矩阵秩",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_2",
+      "chapterId": "ch_2",
+      "x": -70,
+      "y": -120,
+      "vx": 0,
+      "vy": 0,
+      "radius": 26,
+      "baseRadius": 26,
+      "weight": 8,
+      "color": "#fbbf24",
+      "connectedCount": 4,
+      "frequency": 15,
+      "sizeLevel": 5,
+      "keyPhrases": [
+        "gaussian elimination",
+        "row echelon",
+        "rank"
+      ],
+      "infoBadge": {
+        "content": "🟨 $\\operatorname{rank}(A)$ equals the number of non-zero pivot rows in REF.\n🟦 Kronecker-Capelli Theorem: Consistent $\\iff \\operatorname{rank}(A) = \\operatorname{rank}(A|\\mathbf{b})$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_2_2",
+      "labelEn": "Determinants & Inverses",
+      "labelCn": "行列式与逆矩阵",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_2",
+      "chapterId": "ch_2",
+      "x": 90,
+      "y": -110,
+      "vx": 0,
+      "vy": 0,
+      "radius": 26,
+      "baseRadius": 26,
+      "weight": 8,
+      "color": "#fbbf24",
+      "connectedCount": 4,
+      "frequency": 13,
+      "sizeLevel": 5,
+      "keyPhrases": [
+        "determinant",
+        "matrix inverse",
+        "cramer rule"
+      ],
+      "infoBadge": {
+        "content": "🟨 Determinant $\\det(AB) = \\det(A)\\det(B)$.\n🟦 Inverse $A^{-1} = \\frac{1}{\\det(A)} \\operatorname{adj}(A)$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "ch_3",
+      "labelEn": "Chapter 3: Linear Operators & Spectral Theory",
+      "labelCn": "第3章：线性算子与谱理论",
+      "type": "chapter",
+      "level": 1,
+      "clusterId": "ch_3",
+      "x": 390,
+      "y": -190,
+      "vx": 0,
+      "vy": 0,
+      "radius": 36,
+      "baseRadius": 36,
+      "weight": 12,
+      "color": "#a855f7",
+      "connectedCount": 5,
+      "frequency": 20,
+      "sizeLevel": 7,
+      "infoBadge": {
+        "content": "🟨 Linear mapping $\\mathcal{A}: V \\to V$.\n🟦 Eigenvalue equation: $A\\mathbf{v} = \\lambda \\mathbf{v}$.\n🟩 Matrix diagonalization $A = P D P^{-1}$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_3_1",
+      "labelEn": "Eigenvalues & Eigenvectors",
+      "labelCn": "特征值与特征向量",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_3",
+      "chapterId": "ch_3",
+      "x": 310,
+      "y": -80,
+      "vx": 0,
+      "vy": 0,
+      "radius": 28,
+      "baseRadius": 28,
+      "weight": 9,
+      "color": "#a855f7",
+      "connectedCount": 4,
+      "frequency": 18,
+      "sizeLevel": 5,
+      "keyPhrases": [
+        "eigenvalues",
+        "eigenvectors",
+        "characteristic polynomial"
+      ],
+      "infoBadge": {
+        "content": "🟨 Characteristic equation: $\\det(A - \\lambda I) = 0$.\n🟦 Eigenspace $E_\\lambda = \\operatorname{null}(A - \\lambda I)$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_3_2",
+      "labelEn": "Diagonalization & Jordan Normal Form",
+      "labelCn": "矩阵对角化与若尔当标准型",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_3",
+      "chapterId": "ch_3",
+      "x": 450,
+      "y": -60,
+      "vx": 0,
+      "vy": 0,
+      "radius": 25,
+      "baseRadius": 25,
+      "weight": 7,
+      "color": "#a855f7",
+      "connectedCount": 3,
+      "frequency": 11,
+      "sizeLevel": 4,
+      "keyPhrases": [
+        "diagonalization",
+        "jordan normal form",
+        "similarity transform"
+      ],
+      "infoBadge": {
+        "content": "🟨 Matrix $A$ is diagonalizable $\\iff$ algebraic multiplicity equals geometric multiplicity for all $\\lambda_i$.\n🟦 $P^{-1} A P = \\operatorname{diag}(\\lambda_1, \\dots, \\lambda_n)$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "ch_4",
+      "labelEn": "Chapter 4: Euclidean Spaces & Orthogonality",
+      "labelCn": "第4章：欧几里得空间与正交性",
+      "type": "chapter",
+      "level": 1,
+      "clusterId": "ch_4",
+      "x": -180,
+      "y": 180,
+      "vx": 0,
+      "vy": 0,
+      "radius": 36,
+      "baseRadius": 36,
+      "weight": 12,
+      "color": "#10b981",
+      "connectedCount": 5,
+      "frequency": 19,
+      "sizeLevel": 7,
+      "infoBadge": {
+        "content": "🟨 Inner product $\\langle \\mathbf{u}, \\mathbf{v} \\rangle$.\n🟦 Orthogonality $\\mathbf{u} \\perp \\mathbf{v} \\iff \\langle \\mathbf{u}, \\mathbf{v} \\rangle = 0$.\n🟩 Gram-Schmidt process & QR Decomposition.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_4_1",
+      "labelEn": "Gram-Schmidt Orthogonalization",
+      "labelCn": "格拉姆-施密特正交化",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_4",
+      "chapterId": "ch_4",
+      "x": -260,
+      "y": 280,
+      "vx": 0,
+      "vy": 0,
+      "radius": 25,
+      "baseRadius": 25,
+      "weight": 7,
+      "color": "#10b981",
+      "connectedCount": 3,
+      "frequency": 10,
+      "sizeLevel": 4,
+      "keyPhrases": [
+        "gram schmidt",
+        "orthonormal basis",
+        "projections"
+      ],
+      "infoBadge": {
+        "content": "🟨 $\\mathbf{u}_k = \\mathbf{v}_k - \\sum_{j=1}^{k-1} \\frac{\\langle \\mathbf{v}_k, \\mathbf{u}_j \\rangle}{\\|\\mathbf{u}_j\\|^2} \\mathbf{u}_j$.\n🟦 Produces orthonormal basis $\\mathbf{e}_k = \\frac{\\mathbf{u}_k}{\\|\\mathbf{u}_k\\|}$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_4_2",
+      "labelEn": "Singular Value Decomposition (SVD)",
+      "labelCn": "奇异值分解 (SVD)",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_4",
+      "chapterId": "ch_4",
+      "x": -90,
+      "y": 290,
+      "vx": 0,
+      "vy": 0,
+      "radius": 28,
+      "baseRadius": 28,
+      "weight": 10,
+      "color": "#10b981",
+      "connectedCount": 5,
+      "frequency": 22,
+      "sizeLevel": 6,
+      "keyPhrases": [
+        "svd",
+        "singular values",
+        "pseudoinverse"
+      ],
+      "infoBadge": {
+        "content": "🟨 $A = U \\Sigma V^T$ where $U, V$ are orthogonal and $\\Sigma$ is diagonal with $\\sigma_1 \\ge \\sigma_2 \\ge \\dots \\ge 0$.\n🟦 Fundamental theorem of linear algebra.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "ch_5",
+      "labelEn": "Chapter 5: Quadratic & Bilinear Forms",
+      "labelCn": "第5章：二次型与双线性型",
+      "type": "chapter",
+      "level": 1,
+      "clusterId": "ch_5",
+      "x": 240,
+      "y": 190,
+      "vx": 0,
+      "vy": 0,
+      "radius": 34,
+      "baseRadius": 34,
+      "weight": 11,
+      "color": "#ec4899",
+      "connectedCount": 4,
+      "frequency": 16,
+      "sizeLevel": 6,
+      "infoBadge": {
+        "content": "🟨 Quadratic form $Q(\\mathbf{x}) = \\mathbf{x}^T A \\mathbf{x}$.\n🟦 Sylvester criterion for positive definiteness.\n🟩 Canonical reduction via orthogonal transformations.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_5_1",
+      "labelEn": "Sylvester Criterion & Positive Definiteness",
+      "labelCn": "西尔维斯特判据与正定性",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_5",
+      "chapterId": "ch_5",
+      "x": 180,
+      "y": 290,
+      "vx": 0,
+      "vy": 0,
+      "radius": 24,
+      "baseRadius": 24,
+      "weight": 6,
+      "color": "#ec4899",
+      "connectedCount": 3,
+      "frequency": 9,
+      "sizeLevel": 4,
+      "keyPhrases": [
+        "sylvester criterion",
+        "positive definite",
+        "principal minors"
+      ],
+      "infoBadge": {
+        "content": "🟨 Matrix $A$ is positive definite $A > 0 \\iff$ all leading principal minors $\\Delta_k > 0$.\n🟦 All eigenvalues $\\lambda_i > 0$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "sec_5_2",
+      "labelEn": "Principal Axis Theorem",
+      "labelCn": "主轴定理与正交化简",
+      "type": "section",
+      "level": 2,
+      "clusterId": "ch_5",
+      "chapterId": "ch_5",
+      "x": 320,
+      "y": 280,
+      "vx": 0,
+      "vy": 0,
+      "radius": 24,
+      "baseRadius": 24,
+      "weight": 6,
+      "color": "#ec4899",
+      "connectedCount": 3,
+      "frequency": 8,
+      "sizeLevel": 4,
+      "keyPhrases": [
+        "principal axis",
+        "spectral decomposition",
+        "symmetric matrix"
+      ],
+      "infoBadge": {
+        "content": "🟨 Any real symmetric matrix $A = A^T$ can be orthogonally diagonalized $Q = P^T A P = \\Lambda$.\n🟦 Ellipsoids and quadric surfaces.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_ch1_sec1",
+      "source": "ch_1",
+      "target": "sec_1_1",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": 0.15,
+      "color": "#38bdf8"
+    },
+    {
+      "id": "e_ch1_sec2",
+      "source": "ch_1",
+      "target": "sec_1_2",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": -0.15,
+      "color": "#38bdf8"
+    },
+    {
+      "id": "e_sec1_sec2",
+      "source": "sec_1_1",
+      "target": "sec_1_2",
+      "type": "semantic",
+      "weight": 3,
+      "curvature": 0.1,
+      "color": "#38bdf8"
+    },
+    {
+      "id": "e_ch2_sec1",
+      "source": "ch_2",
+      "target": "sec_2_1",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": 0.15,
+      "color": "#fbbf24"
+    },
+    {
+      "id": "e_ch2_sec2",
+      "source": "ch_2",
+      "target": "sec_2_2",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": -0.15,
+      "color": "#fbbf24"
+    },
+    {
+      "id": "e_sec21_sec22",
+      "source": "sec_2_1",
+      "target": "sec_2_2",
+      "type": "semantic",
+      "weight": 3,
+      "curvature": 0.12,
+      "color": "#fbbf24"
+    },
+    {
+      "id": "e_ch3_sec1",
+      "source": "ch_3",
+      "target": "sec_3_1",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": 0.15,
+      "color": "#a855f7"
+    },
+    {
+      "id": "e_ch3_sec2",
+      "source": "ch_3",
+      "target": "sec_3_2",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": -0.15,
+      "color": "#a855f7"
+    },
+    {
+      "id": "e_sec31_sec32",
+      "source": "sec_3_1",
+      "target": "sec_3_2",
+      "type": "semantic",
+      "weight": 3,
+      "curvature": 0.12,
+      "color": "#a855f7"
+    },
+    {
+      "id": "e_ch4_sec1",
+      "source": "ch_4",
+      "target": "sec_4_1",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": 0.15,
+      "color": "#10b981"
+    },
+    {
+      "id": "e_ch4_sec2",
+      "source": "ch_4",
+      "target": "sec_4_2",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": -0.15,
+      "color": "#10b981"
+    },
+    {
+      "id": "e_sec41_sec42",
+      "source": "sec_4_1",
+      "target": "sec_4_2",
+      "type": "semantic",
+      "weight": 3,
+      "curvature": 0.12,
+      "color": "#10b981"
+    },
+    {
+      "id": "e_ch5_sec1",
+      "source": "ch_5",
+      "target": "sec_5_1",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": 0.15,
+      "color": "#ec4899"
+    },
+    {
+      "id": "e_ch5_sec2",
+      "source": "ch_5",
+      "target": "sec_5_2",
+      "type": "hierarchy",
+      "weight": 4,
+      "curvature": -0.15,
+      "color": "#ec4899"
+    },
+    {
+      "id": "e_sec51_sec52",
+      "source": "sec_5_1",
+      "target": "sec_5_2",
+      "type": "semantic",
+      "weight": 3,
+      "curvature": 0.12,
+      "color": "#ec4899"
+    },
+    {
+      "id": "e_ch1_ch2",
+      "source": "ch_1",
+      "target": "ch_2",
+      "type": "semantic",
+      "weight": 5,
+      "curvature": 0.2,
+      "color": "#cbd5e1",
+      "infoBadge": {
+        "content": "🟨 **Coordinates in Vector Space** $\\longleftrightarrow$ **Matrix Columns**.\n🟦 Solving $A\\mathbf{x} = \\mathbf{0}$ finds linear dependencies among vectors.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1,
+        "language": "cn"
+      }
+    },
+    {
+      "id": "e_ch2_ch3",
+      "source": "ch_2",
+      "target": "ch_3",
+      "type": "semantic",
+      "weight": 5,
+      "curvature": 0.18,
+      "color": "#cbd5e1",
+      "infoBadge": {
+        "content": "🟨 Determinant $\\det(A - \\lambda I) = 0$ yields eigenvalues of operator $A$.\n🟦 Invertibility determines existence of full basis of eigenvectors.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "e_ch3_ch4",
+      "source": "ch_3",
+      "target": "ch_4",
+      "type": "semantic",
+      "weight": 4,
+      "curvature": 0.22,
+      "color": "#cbd5e1",
+      "infoBadge": {
+        "content": "🟨 **Spectral Theorem** for self-adjoint operators in Euclidean spaces.\n🟦 Eigenvectors of symmetric matrices are mutually orthogonal.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "e_ch4_ch5",
+      "source": "ch_4",
+      "target": "ch_5",
+      "type": "semantic",
+      "weight": 4,
+      "curvature": 0.18,
+      "color": "#cbd5e1",
+      "infoBadge": {
+        "content": "🟨 Orthogonal transformation diagonalizes quadratic form without altering metric.\n🟦 Gram matrix $G_{ij} = \\langle \\mathbf{e}_i, \\mathbf{e}_j \\rangle$ is symmetric and positive definite.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    },
+    {
+      "id": "e_sec32_sec42",
+      "source": "sec_3_2",
+      "target": "sec_4_2",
+      "type": "semantic",
+      "weight": 3,
+      "curvature": -0.2,
+      "color": "#94a3b8",
+      "infoBadge": {
+        "content": "🟨 SVD is the generalization of eigendecomposition to non-square matrices $A = U \\Sigma V^T$.\n🟦 Singular values $\\sigma_i = \\sqrt{\\lambda_i(A^T A)}$.",
+        "createdAt": "2026-09-18T17:43:08.382Z",
+        "updatedAt": "2026-09-18T17:43:08.382Z",
+        "scale": 1
+      }
+    }
+  ],
+  "settings": {
+    "showCurvedEdges": true,
+    "edgeColor": "#94a3b8",
+    "edgeThickness": 1.2,
+    "edgeOpacity": 0.35,
+    "edgeLength": 1.5,
+    "nodeSpacing": 30,
+    "nodeRepulsionMultiplier": 1.2,
+    "showLabels": true,
+    "physicsRunning": true
+  }
+}

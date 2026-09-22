@@ -1,3 +1,4 @@
+import defaultGraphConfig from '../data/graphConfig.json';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { GraphNode, GraphEdge, GraphSettings } from '../types/graph';
 import { ForceAtlas2Simulation, type PhysicsParams } from '../utils/forceAtlas2';
@@ -247,9 +248,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   }, [nodes, edges, onSelectNode, onZoomChange]);
 
   useEffect(() => {
-    if (setCanvasResetFn) setCanvasResetFn(() => resetView);
-    if (setCanvasFitFn) setCanvasFitFn(() => fitGraphToView);
-    if (setCanvasFocusFn) setCanvasFocusFn(() => focusOnTarget);
+    if (setCanvasResetFn) setCanvasResetFn(resetView);
+    if (setCanvasFitFn) setCanvasFitFn(fitGraphToView);
+    if (setCanvasFocusFn) setCanvasFocusFn(focusOnTarget);
     if (triggerZoomInRef) triggerZoomInRef.current = () => zoomByFactor(1.25);
     if (triggerZoomOutRef) triggerZoomOutRef.current = () => zoomByFactor(0.8);
   }, [setCanvasResetFn, setCanvasFitFn, setCanvasFocusFn, triggerZoomInRef, triggerZoomOutRef, resetView, fitGraphToView, zoomByFactor, focusOnTarget]);
@@ -694,12 +695,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.save();
         
         const scaleMul = targetNode.badgeScale || targetNode.infoBadge?.scale || 1.0;
+        const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
+        const baseBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
+        const baseLineH = defaultGraphConfig?.cardStyles?.lineHeight || 24;
+        const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
         
-        const bodyFontSize = 11 * scaleMul;
-        const headerFontSize = bodyFontSize * 2; // 2x body text font size & bold
-        const lineHeight = 16 * scaleMul;
+        const bodyFontSize = baseBodySize * scaleMul;
+        const headerFontSize = baseHeaderSize * scaleMul; // Header reduced by 25%
+        const lineHeight = baseLineH * scaleMul;
         const sqSize = bodyFontSize * 1.25;
-        const cardPadding = 14 * scaleMul;
+        const cardPadding = basePad * scaleMul;
         const nodeRadius = targetNode.radius || 16;
 
         const { lines: formattedLines, maxLineWidth } = formatBadgeContent(
@@ -848,11 +853,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           ? targetEdge.badgeScale
           : (targetEdge.infoBadge?.scale !== undefined ? targetEdge.infoBadge.scale : 1.0);
 
-        const bodyFontSize = 11 * scaleMul;
-        const headerFontSize = bodyFontSize * 2; // EXACT SAME SIZE AS NODE CARD HEADER
-        const lineHeight = 16 * scaleMul;
+        const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
+        const baseBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
+        const baseLineH = defaultGraphConfig?.cardStyles?.lineHeight || 24;
+        const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
+
+        const bodyFontSize = baseBodySize * scaleMul;
+        const headerFontSize = baseHeaderSize * scaleMul;
+        const lineHeight = baseLineH * scaleMul;
         const sqSize = bodyFontSize * 1.25;
-        const cardPadding = 14 * scaleMul; // Symmetric padding
+        const cardPadding = basePad * scaleMul;
 
         // First node is the one with greater weight
         const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;

@@ -16,6 +16,7 @@ import { Toolbar } from './components/Toolbar';
 import { EdgeSettingsModal } from './components/EdgeSettingsModal';
 import { LocalGraphModal } from './components/LocalGraphModal';
 import { SaveProposalModal } from './components/SaveProposalModal';
+import masterGraphData from './data/masterGraph.json';
 
 function detectModeFromUrl(): AppMode {
   const hash = window.location.hash.toLowerCase();
@@ -30,14 +31,15 @@ export function App() {
   // App Mode: 'student' (Default) or 'assistant'
   const [mode, setMode] = useState<AppMode>(() => detectModeFromUrl());
 
-  const [nodes, setNodes] = useState<GraphNode[]>([]);
-  const [edges, setEdges] = useState<GraphEdge[]>([]);
+  // Direct initialization from masterGraphData to ensure 100% instant rendering
+  const [nodes, setNodes] = useState<GraphNode[]>(() => (masterGraphData.nodes || []) as GraphNode[]);
+  const [edges, setEdges] = useState<GraphEdge[]>(() => (masterGraphData.edges || []) as GraphEdge[]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [vaultName, setVaultName] = useState<string>('Linear Algebra NSU');
+  const [vaultName, setVaultName] = useState<string>(masterGraphData.vaultName || 'Linear Algebra NSU');
 
   // Master Graph Baseline
-  const [masterNodes, setMasterNodes] = useState<GraphNode[]>([]);
-  const [masterEdges, setMasterEdges] = useState<GraphEdge[]>([]);
+  const [masterNodes, setMasterNodes] = useState<GraphNode[]>(() => (masterGraphData.nodes || []) as GraphNode[]);
+  const [masterEdges, setMasterEdges] = useState<GraphEdge[]>(() => (masterGraphData.edges || []) as GraphEdge[]);
 
   // Assistant Proposal Export Modal
   const [isSaveProposalModalOpen, setIsSaveProposalModalOpen] = useState(false);
@@ -184,30 +186,39 @@ export function App() {
   const triggerZoomOutRef = useRef<(() => void) | null>(null);
   const fitGraphFnRef = useRef<(() => void) | null>(null);
   const resetViewFnRef = useRef<(() => void) | null>(null);
+  const canvasFocusFnRef = useRef<((target: { nodeId?: string; edgeId?: string }) => void) | null>(null);
 
-  // Automatic Loading of Master Graph from public/ActualGraph/graph.json on startup
+  // Dynamic check for newly committed ActualGraph/graph.json
   useEffect(() => {
     const loadMasterGraph = async () => {
-      try {
-        const response = await fetch('./ActualGraph/graph.json');
-        if (response.ok) {
-          const data = await response.json();
-          if (data && Array.isArray(data.nodes) && Array.isArray(data.edges)) {
-            setNodes(data.nodes);
-            setEdges(data.edges);
-            setMasterNodes(data.nodes);
-            setMasterEdges(data.edges);
-            if (data.name) {
-              setVaultName(data.name.replace('Linear Algebra NSU - ', ''));
+      const candidates = [
+        './ActualGraph/graph.json',
+        'ActualGraph/graph.json',
+        `${import.meta.env.BASE_URL}ActualGraph/graph.json`,
+      ];
+
+      for (const url of candidates) {
+        try {
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data.nodes) && Array.isArray(data.edges) && data.nodes.length > 0) {
+              setNodes(data.nodes);
+              setEdges(data.edges);
+              setMasterNodes(data.nodes);
+              setMasterEdges(data.edges);
+              if (data.name) {
+                setVaultName(data.name.replace('Linear Algebra NSU - ', ''));
+              }
+              if (data.settings) {
+                setSettings(prev => ({ ...prev, ...data.settings }));
+              }
+              break;
             }
-            if (data.settings) {
-              setSettings(prev => ({ ...prev, ...data.settings }));
-            }
-            return;
           }
+        } catch {
+          // Continue to next candidate
         }
-      } catch (err) {
-        console.warn('Could not load master graph from ActualGraph/graph.json:', err);
       }
     };
 
@@ -733,6 +744,9 @@ export function App() {
           setCanvasResetFn={fn => {
             resetViewFnRef.current = fn;
           }}
+          setCanvasFocusFn={fn => {
+            canvasFocusFnRef.current = fn;
+          }}
           triggerZoomInRef={triggerZoomInRef}
           triggerZoomOutRef={triggerZoomOutRef}
         />
@@ -742,13 +756,13 @@ export function App() {
           <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-sky-950/90 border border-sky-500 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-3 text-xs">
             <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping" />
             <span className="text-sky-200">
-              Локальный граф (глубина <strong>{localGraphState.depth}</strong>): <strong className="text-white">{nodes.find(n => n.id === localGraphState.rootNodeId)?.labelEn}</strong>
+              Local Subgraph (Depth <strong>{localGraphState.depth}</strong>): <strong className="text-white">{nodes.find(n => n.id === localGraphState.rootNodeId)?.labelEn}</strong>
             </span>
             <button
               onClick={handleExitLocalGraph}
               className="px-2.5 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded-full font-bold text-[11px] transition"
             >
-              Вернуть полный граф
+              Return to Full Graph
             </button>
           </div>
         )}
@@ -780,6 +794,7 @@ export function App() {
         {/* Edge Settings Modal (Assistant mode) */}
         {edgeSettingsTarget && !isFullscreen && mode === 'assistant' && (
           <EdgeSettingsModal
+            mode={mode}
             edge={edgeSettingsTarget}
             nodes={nodes}
             onClose={() => setEdgeSettingsTarget(null)}
@@ -815,6 +830,7 @@ export function App() {
         {/* Add Edge Modal (Assistant Mode) */}
         {isAddEdgeModalOpen && addEdgeSourceNode && (
           <AddEdgeModal
+            mode={mode}
             sourceNode={addEdgeSourceNode}
             nodes={nodes}
             edges={edges}

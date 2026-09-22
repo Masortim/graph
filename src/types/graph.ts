@@ -142,13 +142,32 @@ export interface ProjectState {
 
 export type AppMode = 'author' | 'student' | 'assistant';
 
+export interface ProposalDiffItem {
+  field: string;
+  fieldName: string;
+  oldValue: string;
+  newValue: string;
+}
+
 export interface ProposalChangeItem {
   id: string;
   type: 'add_node' | 'edit_edge_badge' | 'edit_node_badge' | 'recommend_delete_edge' | 'recommend_merge_nodes';
   targetId: string;
+  targetType?: 'node' | 'edge';
   targetTitle: string;
   description: string;
   details?: string;
+  oldLabel?: string;
+  newLabel?: string;
+  oldCard?: string;
+  newCard?: string;
+  oldColor?: string;
+  newColor?: string;
+  oldSize?: string;
+  newSize?: string;
+  oldStyle?: string;
+  newStyle?: string;
+  diffs?: ProposalDiffItem[];
   isProcessed?: boolean;
   nodeData?: Partial<GraphNode>;
   edgeData?: Partial<GraphEdge>;

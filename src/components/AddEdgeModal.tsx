@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { GraphNode, GraphEdge } from '../types/graph';
+import type { GraphNode, GraphEdge, AppMode } from '../types/graph';
 import { X, Link2, Plus, Search, Palette, Sparkles, Check } from 'lucide-react';
 
 interface AddEdgeModalProps {
@@ -15,6 +15,7 @@ interface AddEdgeModalProps {
     color: string,
     weight: number
   ) => void;
+  mode?: AppMode;
 }
 
 const COLOR_PRESETS = [
@@ -34,8 +35,13 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
   onClose,
   onAddEdgeToExisting,
   onAddEdgeToNewNode,
+  mode = 'author',
 }) => {
-  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const isAssistant = mode === 'assistant';
+  // Assistant can only create new nodes from base nodes (Requirement 2.1)
+  const canCreateNewNodeFromSource = !isAssistant || !sourceNode.isAssistantProposal;
+
+  const [isCreatingNew, setIsCreatingNew] = useState(canCreateNewNodeFromSource);
   const [selectedTargetId, setSelectedTargetId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -45,7 +51,7 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
   const [color, setColor] = useState(COLOR_PRESETS[0]);
   const [weight, setWeight] = useState(2);
 
-  // Requirement 1: Find all node IDs already connected to sourceNode
+  // Find all node IDs already connected to sourceNode
   const connectedNodeIds = useMemo(() => {
     const set = new Set<string>();
     edges.forEach(e => {
@@ -113,7 +119,7 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-xs">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -121,9 +127,15 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
               <Link2 className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Добавить связь</h2>
+              <h2 className="text-base font-bold text-slate-100">
+                {isAssistant ? 'Add Connection' : 'Добавить связь'}
+              </h2>
               <p className="text-xs text-slate-400">
-                Связать узел «<span className="text-sky-300 font-medium">{sourceNode.labelEn}</span>» с несоединенным узлом
+                {isAssistant ? (
+                  <>Connect «<span className="text-sky-300 font-medium">{sourceNode.labelEn}</span>» with another node</>
+                ) : (
+                  <>Связать узел «<span className="text-sky-300 font-medium">{sourceNode.labelEn}</span>» с несоединенным узлом</>
+                )}
               </p>
             </div>
           </div>
@@ -146,17 +158,21 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
                 !isCreatingNew ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Существующий узел ({sortedCandidates.length})
+              {isAssistant ? `Existing Node (${sortedCandidates.length})` : `Существующий узел (${sortedCandidates.length})`}
             </button>
             <button
               type="button"
+              disabled={!canCreateNewNodeFromSource}
               onClick={() => setIsCreatingNew(true)}
               className={`flex-1 py-1.5 rounded-lg font-medium transition flex items-center justify-center gap-1.5 ${
-                isCreatingNew ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                !canCreateNewNodeFromSource 
+                  ? 'opacity-40 cursor-not-allowed text-slate-500' 
+                  : (isCreatingNew ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200')
               }`}
+              title={!canCreateNewNodeFromSource ? (isAssistant ? "New nodes can only be attached to base graph nodes" : "Новые узлы можно привязывать только к базовым узлам") : undefined}
             >
               <Plus className="w-3.5 h-3.5" />
-              Создать новый узел
+              {isAssistant ? 'Create New Node' : 'Создать новый узел'}
             </button>
           </div>
 
@@ -164,13 +180,13 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
             <div className="space-y-3">
               <div>
                 <label className="block text-slate-300 font-medium mb-1">
-                  Выберите целевой узел (только не связанные):
+                  {isAssistant ? 'Select target node (unconnected only):' : 'Выберите целевой узел (только не связанные):'}
                 </label>
                 <div className="relative mb-2">
                   <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
                   <input
                     type="text"
-                    placeholder="Быстрый поиск по названию..."
+                    placeholder={isAssistant ? "Quick search by title..." : "Быстрый поиск по названию..."}
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
@@ -191,7 +207,9 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
                 <div className="bg-slate-950 border border-slate-800 rounded-xl max-h-52 overflow-y-auto p-1.5 space-y-1">
                   {sortedCandidates.length === 0 ? (
                     <div className="text-center py-6 text-slate-500 italic text-xs">
-                      {searchTerm ? `По запросу «${searchTerm}» узлы не найдены` : 'Нет доступных несвязанных узлов'}
+                      {isAssistant 
+                        ? (searchTerm ? `No nodes match «${searchTerm}»` : 'No available unconnected nodes')
+                        : (searchTerm ? `По запросу «${searchTerm}» узлы не найдены` : 'Нет доступных несвязанных узлов')}
                     </div>
                   ) : (
                     sortedCandidates.map(n => {
@@ -239,7 +257,7 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
 
                 {selectedNodeObj && (
                   <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-1.5 px-2 py-1 bg-slate-950/60 rounded-lg border border-slate-800">
-                    <span>Выбран:</span>
+                    <span>{isAssistant ? 'Selected:' : 'Выбран:'}</span>
                     <strong className="text-sky-300 font-medium">{selectedNodeObj.labelEn}</strong>
                     {selectedNodeObj.labelCn && <span className="text-slate-400">({selectedNodeObj.labelCn})</span>}
                   </div>
@@ -249,7 +267,8 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
           ) : (
             <div className="space-y-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
               <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Параметры нового узла
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                {isAssistant ? 'New Concept Node Parameters' : 'Параметры нового узла'}
               </span>
 
               <div>
@@ -277,7 +296,7 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
 
               <div>
                 <label className="block text-slate-300 mb-1 font-medium flex items-center gap-1">
-                  <Palette className="w-3 h-3 text-sky-400" /> Цвет узла:
+                  <Palette className="w-3 h-3 text-sky-400" /> {isAssistant ? 'Node Color:' : 'Цвет узла:'}
                 </label>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {COLOR_PRESETS.map(c => (
@@ -305,7 +324,7 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
           {/* Edge Weight */}
           <div>
             <div className="flex justify-between text-slate-300 mb-1 text-[11px]">
-              <span>Вес связи (Weight):</span>
+              <span>{isAssistant ? 'Edge Weight:' : 'Вес связи (Weight):'}</span>
               <span className="font-mono text-sky-300">{weight}</span>
             </div>
             <input
@@ -325,7 +344,7 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium"
             >
-              Отмена
+              {isAssistant ? 'Cancel' : 'Отмена'}
             </button>
             <button
               type="submit"
@@ -333,7 +352,7 @@ export const AddEdgeModal: React.FC<AddEdgeModalProps> = ({
               className="px-5 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white rounded-lg font-bold flex items-center gap-1.5 shadow transition"
             >
               <Link2 className="w-3.5 h-3.5" />
-              Создать связь
+              {isAssistant ? 'Create Connection' : 'Создать связь'}
             </button>
           </div>
         </form>
