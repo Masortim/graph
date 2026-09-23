@@ -768,11 +768,7 @@ export function App() {
         )}
 
         {/* Right Inspector Modal: Only open in Assistant mode when NOT in Fullscreen mode */}
-        {selectedNode && !isFullscreen && mode === 'assistant' &&
-          // The main yellow Algebra node is a navigation/concept node, not an
-          // editable assistant card.  It can still be selected and dragged,
-          // but selecting it must not open the right-hand inspector.
-          !['linear algebra', 'algebra'].includes(selectedNode.labelEn.trim().toLowerCase()) && (
+        {selectedNode && !isFullscreen && mode === 'assistant' && (
           <InfoCardModal
             mode={mode}
             node={selectedNode}
