@@ -373,11 +373,41 @@
       "frequency": 16,
       "sizeLevel": 6,
       "infoBadge": {
+<<<<<<< HEAD
         "content": "🟨 Quadratic form $Q(\\mathbf{x}) = \\mathbf{x}^T A \\mathbf{x}$.\n🟦 Sylvester criterion for positive definiteness.\n🟩 Canonical reduction via orthogonal transformations.",
         "createdAt": "2026-09-18T17:43:08.382Z",
         "updatedAt": "2026-09-18T17:43:08.382Z",
         "scale": 1
       }
+=======
+        "content": "",
+        "createdAt": "2026-09-12T19:05:22.968Z",
+        "updatedAt": "2026-09-13T06:36:48.426Z",
+        "tags": [
+          "backpropagation",
+          "gradient descent",
+          "loss function",
+          "adam"
+        ]
+      },
+      "rawText": "[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\n[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\n[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\n[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\n[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\n[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\n[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\n[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\n[Merged Node: Linear Algebra]\n\n--- Source A (Linear Algebra) ---\nConcept Node: Gradient Backprop & Optimization (梯度反向传播与优化)\nKey Phrases: backpropagation, gradient descent, loss function, adam\nOccurrences: 12\n\n--- Source B (Chapter 01) ---\nChapter: Chapter 01\n\n--- Source B (Chapter 02) ---\nChapter: Chapter 02\n\n--- Source B (Chapter 05) ---\nChapter: Chapter 05\n\n--- Source B (Chapter 04) ---\nChapter: Chapter 04\n\n--- Source B (Linear Equation System) ---\nChapter: Chapter 00\n\n--- Source B (Chapter 06) ---\nChapter: Chapter 06\n\n--- Source B (Chapter 03) ---\nChapter: Chapter 03\n\n--- Source B (Chapter 07) ---\nChapter: Chapter 07\n\n--- Source B (Chapter 08) ---\nChapter: Chapter 08",
+      "isCustomOrEdited": true,
+      "mergedFrom": {
+        "nodeAId": "merged_1789281144397_merged_1_chap_19_",
+        "nodeBId": "chap_1_chapter_08",
+        "nodeALabel": "Linear Algebra (Linear Algebra)",
+        "nodeBLabel": "Chapter 08 (Chapter 08)",
+        "nodeAOriginalEn": "Linear Algebra",
+        "nodeBOriginalEn": "Chapter 08",
+        "date": "2026-09-13T06:36:48.426Z"
+      },
+      "connectedCount": 32,
+      "isFixed": false,
+      "deletedEdgeKeys": [],
+      "frequency": 4,
+      "sizeLevel": 9,
+      "customSizeLevel": 9
+>>>>>>> 25fafde3de6b7eea8e057a89b0566b5999cd4dbd
     },
     {
       "id": "sec_5_1",
