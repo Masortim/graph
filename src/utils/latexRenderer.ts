@@ -17,7 +17,7 @@ export function renderLatexToHtml(formula: string, isDisplay = false): string {
     return rendered;
   } catch (err) {
     console.warn('LaTeX rendering error:', err);
-    return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-950/80 border border-red-800 text-red-300 font-mono text-[10px]" title="LaTeX Syntax Error: ${formula}">
+    return `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-950/80 border border-red-800 text-red-300 font-mono text-[10px]" title="LaTeX Syntax Error: ${escapeHtml(formula)}">
       <span class="font-bold">Σ LaTeX</span>
       <span class="opacity-75">${escapeHtml(formula)}</span>
     </span>`;
@@ -92,9 +92,41 @@ export function parseRichLine(line: string): RichSegment[] {
   return segments;
 }
 
+const SUPERSCRIPT_MAP: Record<string, string> = {
+  '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+  '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾', 'n': 'ⁿ', 'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'm': 'ᵐ',
+  'p': 'ᵖ', 'r': 'ʳ', 's': 'ˢ', 't': 'ᵗ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ', 'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ',
+  'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ', 'g': 'ᵍ', 'h': 'ʰ', 'T': 'ᵀ', 'A': 'ᴬ', 'B': 'ᴮ', 'C': 'ᶜ', 'D': 'ᴰ',
+  'E': 'ᴱ', 'H': 'ᴴ', 'I': 'ᴵ', 'J': 'ᴶ', 'K': 'ᴷ', 'L': 'ᴸ', 'M': 'ᴹ', 'N': 'ᴺ', 'P': 'ᴾ', 'R': 'ᴿ',
+  'U': 'ᵁ', 'V': 'ⱽ', 'W': 'ᵂ', '*': '*'
+};
+
+const SUBSCRIPT_MAP: Record<string, string> = {
+  '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+  '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎', 'a': 'ₐ', 'e': 'ₑ', 'h': 'ₕ', 'i': 'ᵢ', 'j': 'ⱼ',
+  'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'o': 'ₒ', 'p': 'ₚ', 'r': 'ᵣ', 's': 'ₛ', 't': 'ₜ', 'u': 'ᵤ',
+  'v': 'ᵥ', 'x': 'ₓ'
+};
+
+function toSuperscript(str: string): string {
+  return str.split('').map(c => SUPERSCRIPT_MAP[c] || c).join('');
+}
+
+function toSubscript(str: string): string {
+  return str.split('').map(c => SUBSCRIPT_MAP[c] || c).join('');
+}
+
 // Convert standard LaTeX notations to readable canvas unicode text representations
 export function latexToCanvasGlyphs(latex: string): string {
   let s = latex.trim();
+
+  // Matrices & Environments first
+  s = s.replace(/\\begin\{(?:pmatrix|matrix|bmatrix)\}([\s\S]*?)\\end\{(?:pmatrix|matrix|bmatrix)\}/g, (_, body) => {
+    const rows = body.split('\\\\').map((r: string) => r.replace(/&/g, ' ').trim()).filter(Boolean);
+    return `[ ${rows.join(' | ')} ]`;
+  });
+
+  // Number spaces
   s = s.replace(/\\mathbb\{R\}/g, 'ℝ');
   s = s.replace(/\\mathbb\{C\}/g, 'ℂ');
   s = s.replace(/\\mathbb\{Z\}/g, 'ℤ');
@@ -102,66 +134,84 @@ export function latexToCanvasGlyphs(latex: string): string {
   s = s.replace(/\\mathbb\{Q\}/g, 'ℚ');
   s = s.replace(/\\mathbb\{F\}/g, '𝔽');
   
+  // Specific symbols (with boundaries / non-word lookahead to avoid partial matches)
+  s = s.replace(/\\top(?![a-zA-Z])/g, '⊤');
+  s = s.replace(/\\bot(?![a-zA-Z])/g, '⊥');
+  s = s.replace(/\\perp(?![a-zA-Z])/g, '⊥');
+  s = s.replace(/\\otimes(?![a-zA-Z])/g, '⊗');
+  s = s.replace(/\\oplus(?![a-zA-Z])/g, '⊕');
+  s = s.replace(/\\infty(?![a-zA-Z])/g, '∞');
+  s = s.replace(/\\times(?![a-zA-Z])/g, '×');
+  s = s.replace(/\\cdot(?![a-zA-Z])/g, '·');
+  s = s.replace(/\\pm(?![a-zA-Z])/g, '±');
+  s = s.replace(/\\mp(?![a-zA-Z])/g, '∓');
+  s = s.replace(/\\neq(?![a-zA-Z])/g, '≠');
+  s = s.replace(/\\leq(?![a-zA-Z])/g, '≤');
+  s = s.replace(/\\geq(?![a-zA-Z])/g, '≥');
+  s = s.replace(/\\approx(?![a-zA-Z])/g, '≈');
+  s = s.replace(/\\notin(?![a-zA-Z])/g, '∉');
+  s = s.replace(/\\in(?![a-zA-Z])/g, '∈');
+  s = s.replace(/\\subset(?![a-zA-Z])/g, '⊂');
+  s = s.replace(/\\subseteq(?![a-zA-Z])/g, '⊆');
+  s = s.replace(/\\forall(?![a-zA-Z])/g, '∀');
+  s = s.replace(/\\exists(?![a-zA-Z])/g, '∃');
+  s = s.replace(/\\iff(?![a-zA-Z])/g, '⇔');
+  s = s.replace(/\\implies(?![a-zA-Z])/g, '⇒');
+  s = s.replace(/\\Rightarrow(?![a-zA-Z])/g, '⇒');
+  s = s.replace(/\\Leftarrow(?![a-zA-Z])/g, '⇐');
+  s = s.replace(/\\rightarrow(?![a-zA-Z])/g, '→');
+  s = s.replace(/\\leftarrow(?![a-zA-Z])/g, '←');
+  s = s.replace(/\\to(?![a-zA-Z])/g, '→');
+
   // Greek letters
-  s = s.replace(/\\alpha/g, 'α');
-  s = s.replace(/\\beta/g, 'β');
-  s = s.replace(/\\gamma/g, 'γ');
-  s = s.replace(/\\delta/g, 'δ');
-  s = s.replace(/\\lambda/g, 'λ');
-  s = s.replace(/\\mu/g, 'μ');
-  s = s.replace(/\\sigma/g, 'σ');
-  s = s.replace(/\\theta/g, 'θ');
-  s = s.replace(/\\omega/g, 'ω');
-  s = s.replace(/\\pi/g, 'π');
-  s = s.replace(/\\nabla/g, '∇');
-  s = s.replace(/\\partial/g, '∂');
+  s = s.replace(/\\alpha(?![a-zA-Z])/g, 'α');
+  s = s.replace(/\\beta(?![a-zA-Z])/g, 'β');
+  s = s.replace(/\\gamma(?![a-zA-Z])/g, 'γ');
+  s = s.replace(/\\delta(?![a-zA-Z])/g, 'δ');
+  s = s.replace(/\\lambda(?![a-zA-Z])/g, 'λ');
+  s = s.replace(/\\mu(?![a-zA-Z])/g, 'μ');
+  s = s.replace(/\\sigma(?![a-zA-Z])/g, 'σ');
+  s = s.replace(/\\theta(?![a-zA-Z])/g, 'θ');
+  s = s.replace(/\\omega(?![a-zA-Z])/g, 'ω');
+  s = s.replace(/\\pi(?![a-zA-Z])/g, 'π');
+  s = s.replace(/\\nabla(?![a-zA-Z])/g, '∇');
+  s = s.replace(/\\partial(?![a-zA-Z])/g, '∂');
+  s = s.replace(/\\Delta(?![a-zA-Z])/g, 'Δ');
+  s = s.replace(/\\Sigma(?![a-zA-Z])/g, 'Σ');
+  s = s.replace(/\\Omega(?![a-zA-Z])/g, 'Ω');
+  s = s.replace(/\\Lambda(?![a-zA-Z])/g, 'Λ');
+  s = s.replace(/\\Phi(?![a-zA-Z])/g, 'Φ');
 
-  // Math operators
-  s = s.replace(/\\times/g, '×');
-  s = s.replace(/\\cdot/g, '·');
-  s = s.replace(/\\pm/g, '±');
-  s = s.replace(/\\neq/g, '≠');
-  s = s.replace(/\\leq/g, '≤');
-  s = s.replace(/\\geq/g, '≥');
-  s = s.replace(/\\approx/g, '≈');
-  s = s.replace(/\\infty/g, '∞');
-  s = s.replace(/\\in/g, '∈');
-  s = s.replace(/\\notin/g, '∉');
-  s = s.replace(/\\subset/g, '⊂');
-  s = s.replace(/\\subseteq/g, '⊆');
-  s = s.replace(/\\forall/g, '∀');
-  s = s.replace(/\\exists/g, '∃');
-  s = s.replace(/\\to/g, '→');
-  s = s.replace(/\\leftarrow/g, '←');
-  s = s.replace(/\\rightarrow/g, '→');
-  s = s.replace(/\\Rightarrow/g, '⇒');
-  s = s.replace(/\\iff/g, '⇔');
+  // Operators
+  s = s.replace(/\\det(?![a-zA-Z])/g, 'det');
+  s = s.replace(/\\dim(?![a-zA-Z])/g, 'dim');
+  s = s.replace(/\\ker(?![a-zA-Z])/g, 'ker');
+  s = s.replace(/\\im(?![a-zA-Z])/g, 'im');
+  s = s.replace(/\\rank(?![a-zA-Z])/g, 'rank');
+  s = s.replace(/\\tr(?![a-zA-Z])/g, 'tr');
+  s = s.replace(/\\operatorname\{([^}]+)\}/g, '$1');
 
-  // Superscripts
-  s = s.replace(/\^0/g, '⁰').replace(/\^1/g, '¹').replace(/\^2/g, '²').replace(/\^3/g, '³').replace(/\^4/g, '⁴')
-       .replace(/\^5/g, '⁵').replace(/\^6/g, '⁶').replace(/\^7/g, '⁷').replace(/\^8/g, '⁸').replace(/\^9/g, '⁹')
-       .replace(/\^n/g, 'ⁿ').replace(/\^T/g, 'ᵀ').replace(/\^\*/g, '*').replace(/\^\{-1\}/g, '⁻¹');
-
-  // Subscripts
-  s = s.replace(/_0/g, '₀').replace(/_1/g, '₁').replace(/_2/g, '₂').replace(/_3/g, '₃').replace(/_4/g, '₄')
-       .replace(/_5/g, '₅').replace(/_6/g, '₆').replace(/_7/g, '₇').replace(/_8/g, '₈').replace(/_9/g, '₉')
-       .replace(/_i/g, 'ᵢ').replace(/_j/g, 'ⱼ').replace(/_k/g, 'ₖ').replace(/_n/g, 'ₙ').replace(/_m/g, 'ₘ');
-
-  // Fractions: \frac{a}{b} -> a/b
+  // Fractions: \frac{a}{b} -> (a/b)
   s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1/$2)');
 
-  // Simple matrices: \begin{pmatrix} a & b \\ c & d \end{pmatrix} -> [a b; c d]
-  s = s.replace(/\\begin\{(?:pmatrix|matrix|bmatrix)\}([\s\S]*?)\\end\{(?:pmatrix|matrix|bmatrix)\}/g, (_, body) => {
-    const rows = body.split('\\\\').map((r: string) => r.replace(/&/g, ' ').trim()).filter(Boolean);
-    return `[ ${rows.join(' | ')} ]`;
-  });
+  // Superscripts with curly braces: ^{...}
+  s = s.replace(/\^\{([^}]+)\}/g, (_, exp) => toSuperscript(exp));
+  // Single char superscripts: ^x
+  s = s.replace(/\^([0-9a-zA-Z+*=\-()])/g, (_, exp) => toSuperscript(exp));
 
-  // Clean remaining commands like \text{...} or \{...\}
+  // Subscripts with curly braces: _{...}
+  s = s.replace(/_\{([^}]+)\}/g, (_, sub) => toSubscript(sub));
+  // Single char subscripts: _x
+  s = s.replace(/_([0-9a-zA-Z+=\-()])/g, (_, sub) => toSubscript(sub));
+
+  // Clean formatting commands
   s = s.replace(/\\text\{([^}]+)\}/g, '$1');
   s = s.replace(/\\mathbf\{([^}]+)\}/g, '$1');
   s = s.replace(/\\math(?:rm|it|sf)\{([^}]+)\}/g, '$1');
+  s = s.replace(/\\vec\{([^}]+)\}/g, '→$1');
   s = s.replace(/\\left\(/g, '(').replace(/\\right\)/g, ')');
   s = s.replace(/\\left\[/g, '[').replace(/\\right\]/g, ']');
+  s = s.replace(/\\langle/g, '⟨').replace(/\\rangle/g, '⟩');
 
   return s;
 }

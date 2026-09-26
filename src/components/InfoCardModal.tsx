@@ -296,11 +296,12 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
               );
             }
             if (seg.type === 'latex') {
+              const rawLatex = seg.latex || seg.text || '';
               return (
                 <span
                   key={segIdx}
                   className="inline-block px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
-                  dangerouslySetInnerHTML={{ __html: renderLatexToHtml(seg.text || '') }}
+                  dangerouslySetInnerHTML={{ __html: renderLatexToHtml(rawLatex) }}
                 />
               );
             }
@@ -566,28 +567,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                     title="Green (🟩)"
                   />
 
-                  <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
-                  <button
-                    type="button"
-                    onClick={() => insertLatexSnippet('$\\mathbb{R}^n$')}
-                    className="px-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-sky-300 font-mono"
-                  >
-                    $\mathbb&#123;R&#125;^n$
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertLatexSnippet('$\\frac{1}{2}$')}
-                    className="px-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-sky-300 font-mono"
-                  >
-                    $\frac&#123;1&#125;&#123;2&#125;$
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertLatexSnippet('$\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$')}
-                    className="px-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-sky-300 font-mono"
-                  >
-                    $\begin&#123;pmatrix&#125;$
-                  </button>
+
                 </div>
 
                 <button

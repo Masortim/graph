@@ -316,6 +316,7 @@ export function App() {
   );
 
   const handleEnterLocalGraph = (nodeId: string, depth: 1 | 2) => {
+    setSelectedNodeId(null);
     setLocalGraphState({
       active: true,
       rootNodeId: nodeId,
@@ -777,7 +778,7 @@ export function App() {
             onClose={() => setSelectedNodeId(null)}
             onUpdateInfoBadge={handleUpdateInfoBadge}
             onUpdateBadgeScale={handleUpdateBadgeScale}
-            onUpdateProperties={(id, en, cn, col) => handleUpdateProperties(id, en, cn, col)}
+            onUpdateProperties={handleUpdateProperties}
             onUpdateKeyPhrases={handleUpdateKeyPhrases}
             onUpdateNodeFrequencyAndSize={() => {}}
             onOpenMergeModal={() => {}}

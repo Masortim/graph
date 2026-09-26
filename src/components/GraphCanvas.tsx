@@ -128,6 +128,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const lastRmbEdgeClickTime = useRef<{ edgeId: string; time: number } | null>(null);
 
   const isDraggingNode = useRef<GraphNode | null>(null);
+  const lmbStartPos = useRef<{ x: number; y: number } | null>(null);
+  const lmbHitNode = useRef<GraphNode | null>(null);
+  const hasLmbMoved = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const hoveredNodeRef = useRef<GraphNode | null>(null);
   const hoveredEdgeRef = useRef<GraphEdge | null>(null);
@@ -344,9 +347,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         edges.forEach(e => {
           if (e.source === focusedNode.id) {
             neighborSet.add(e.target);
-            highlightedEdgeSet.add(e.id);
           } else if (e.target === focusedNode.id) {
             neighborSet.add(e.source);
+          }
+        });
+        // Requirement 2: Highlight both incident edges and edges between neighbor nodes
+        edges.forEach(e => {
+          if (neighborSet.has(e.source) && neighborSet.has(e.target)) {
             highlightedEdgeSet.add(e.id);
           }
         });
@@ -1089,13 +1096,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
     // Left Mouse Button (LMB)
     if (e.button === 0) {
+      lmbStartPos.current = { x: clientX, y: clientY };
+      hasLmbMoved.current = false;
       const hitNode = getNodeAtPosition(worldPos.x, worldPos.y);
+      lmbHitNode.current = hitNode;
       if (hitNode) {
         isDraggingNode.current = hitNode;
         hitNode.isFixed = true;
-        onSelectNode(hitNode);
-      } else {
-        onSelectNode(null);
       }
     }
   };
@@ -1153,6 +1160,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     }
 
     if (isDraggingNode.current) {
+      if (lmbStartPos.current) {
+        const movedDist = Math.hypot(clientX - lmbStartPos.current.x, clientY - lmbStartPos.current.y);
+        if (movedDist > 4) {
+          hasLmbMoved.current = true;
+        }
+      }
       const node = isDraggingNode.current;
       node.x = worldPos.x;
       node.y = worldPos.y;
@@ -1199,9 +1212,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       rmbHitEdge.current = null;
     }
 
-    if (isDraggingNode.current) {
-      isDraggingNode.current.isFixed = false;
-      isDraggingNode.current = null;
+    if (e.button === 0) {
+      if (isDraggingNode.current) {
+        isDraggingNode.current.isFixed = false;
+        isDraggingNode.current = null;
+      }
+      if (!hasLmbMoved.current) {
+        if (lmbHitNode.current) {
+          onSelectNode(lmbHitNode.current);
+        } else {
+          onSelectNode(null);
+        }
+      }
+      lmbStartPos.current = null;
+      lmbHitNode.current = null;
+      hasLmbMoved.current = false;
     }
   };
 

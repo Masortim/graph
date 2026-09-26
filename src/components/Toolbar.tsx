@@ -259,8 +259,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             )}
           </div>
 
-          {/* Right Controls: Help, SVG Export, Fullscreen */}
+          {/* Right Controls: Pause/Play Physics, Help, Fullscreen */}
           <div className="flex items-center gap-2">
+            {/* Play/Pause FA2 Physics (Requirement 0) */}
+            <button
+              onClick={() => onUpdateSettings({ physicsRunning: !settings.physicsRunning })}
+              className={`p-1.5 rounded-lg border text-xs transition ${
+                settings.physicsRunning
+                  ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-400'
+              }`}
+              title={settings.physicsRunning ? (isStudent || mode === 'assistant' ? 'Pause Physics' : 'Остановить физику') : (isStudent || mode === 'assistant' ? 'Resume Physics' : 'Запустить физику')}
+            >
+              {settings.physicsRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            </button>
+
             <button
               onClick={() => setShowHelp(!showHelp)}
               className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition"
