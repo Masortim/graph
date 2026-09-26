@@ -1,9 +1,10 @@
 import defaultGraphConfig from '../data/graphConfig.json';
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import type { GraphNode, GraphEdge, GraphSettings } from '../types/graph';
 import { ForceAtlas2Simulation, type PhysicsParams } from '../utils/forceAtlas2';
-import { formatBadgeContent } from '../utils/badgeFormatter';
-import { latexToCanvasText } from '../utils/latexRenderer';
+import { tokenizeLine, BADGE_SQUARE_COLORS } from '../utils/badgeFormatter';
+import { renderLatexToHtml } from '../utils/latexRenderer';
+import { X } from 'lucide-react';
 
 interface GraphCanvasProps {
   nodes: GraphNode[];
@@ -49,22 +50,29 @@ interface BoundingBox {
 }
 
 function distanceToLineSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
-  const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
-  if (l2 === 0) return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
-  let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const l2 = dx * dx + dy * dy;
+  if (l2 === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / l2;
   t = Math.max(0, Math.min(1, t));
-  return Math.sqrt((px - (x1 + t * (x2 - x1))) ** 2 + (py - (y1 + t * (y2 - y1))) ** 2);
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
-function distanceToQuadraticBezier(px: number, py: number, x1: number, y1: number, cx: number, cy: number, x2: number, y2: number): number {
+function distanceToQuadraticBezier(
+  px: number, py: number,
+  x0: number, y0: number,
+  x1: number, y1: number,
+  x2: number, y2: number
+): number {
   let minDist = Infinity;
-  const steps = 14;
-  let prevX = x1;
-  let prevY = y1;
+  const steps = 15;
+  let prevX = x0;
+  let prevY = y0;
   for (let i = 1; i <= steps; i++) {
     const t = i / steps;
-    const currX = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
-    const currY = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
+    const currX = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * x1 + t * t * x2;
+    const currY = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * y1 + t * t * y2;
     const d = distanceToLineSegment(px, py, prevX, prevY, currX, currY);
     if (d < minDist) minDist = d;
     prevX = currX;
@@ -90,7 +98,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   settings,
   zoomLevel,
   onZoomChange,
-  isFullscreen = false,
+  isFullscreen,
   pinnedBadgeNodeIds,
   onTogglePinNodeBadge,
   pinnedBadgeEdgeIds,
@@ -103,12 +111,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   triggerZoomInRef,
   triggerZoomOutRef,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
-  const transformRef = useRef({ x: 0, y: 0, k: 1 });
+  const transformRef = useRef(transform);
   transformRef.current = transform;
+
+  const defaultEdgeColor = '#38bdf8';
+
+  const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
   useEffect(() => {
     if (Math.abs(zoomLevel - transform.k) > 0.01) {
@@ -134,6 +146,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const lastMousePos = useRef({ x: 0, y: 0 });
   const hoveredNodeRef = useRef<GraphNode | null>(null);
   const hoveredEdgeRef = useRef<GraphEdge | null>(null);
+
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
   const currentPhysicsParams: Partial<PhysicsParams> = {
     edgeLengthMultiplier: settings.edgeLength,
@@ -298,21 +313,20 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         canvas.height = displayHeight * dpr;
       }
 
-      if (settings.physicsRunning && simRef.current) {
-        simRef.current.step(1.0);
-      }
-
       ctx.save();
       ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
 
-      // Dark background
-      ctx.fillStyle = '#0a0d14';
-      ctx.fillRect(0, 0, displayWidth, displayHeight);
+      // ForceAtlas2 Physics step
+      if (settings.physicsRunning && simRef.current) {
+        simRef.current.step(1);
+      }
 
-      // Subtle background grid
       const { x: panX, y: panY, k: scale } = transformRef.current;
+
+      // Draw Background Grid
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
       ctx.lineWidth = 1;
       const gridSize = 40 * scale;
       const startX = panX % gridSize;
@@ -363,73 +377,30 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       const isFullscreenSearching = !!fullscreenSearchHighlight;
 
       // 1. Draw Edges
-      const nodeMap = new Map<string, GraphNode>();
-      nodes.forEach(n => nodeMap.set(n.id, n));
-
-      const defaultEdgeColor = settings.edgeColor || '#94a3b8';
-      const defaultThickness = settings.edgeThickness || 1.2;
-      const baseOpacity = settings.edgeOpacity || 0.35;
-
       edges.forEach(edge => {
         const src = nodeMap.get(edge.source);
         const tgt = nodeMap.get(edge.target);
         if (!src || !tgt) return;
 
-        const isEdgeHovered = hoveredEdge?.id === edge.id;
-        const isNeighborEdge = highlightedEdgeSet.has(edge.id);
+        const isHovered = hoveredEdge?.id === edge.id;
+        const isIncident = focusedNode ? (edge.source === focusedNode.id || edge.target === focusedNode.id) : false;
+        const isHighlighted = highlightedEdgeSet.has(edge.id);
 
-        let isEdgeSolid = false;
-        let isEdgeDimmed = false;
-
+        let isDimmed = false;
         if (isFullscreenSearching && fullscreenSearchHighlight) {
-          const isInternal = fullscreenSearchHighlight.matchingNodeIds.has(edge.source) &&
-                             fullscreenSearchHighlight.matchingNodeIds.has(edge.target);
-          const isOutgoing = fullscreenSearchHighlight.outgoingEdgeIds.has(edge.id);
-          if (isInternal || isOutgoing) {
-            isEdgeSolid = true;
-          } else {
-            isEdgeDimmed = true;
-          }
+          const isOut = fullscreenSearchHighlight.outgoingEdgeIds.has(edge.id);
+          if (!isOut) isDimmed = true;
         } else if (isStructureHighlighting && structureHighlightNodeIds) {
-          const bothInStructure = structureHighlightNodeIds.has(edge.source) && structureHighlightNodeIds.has(edge.target);
-          if (bothInStructure) {
-            isEdgeSolid = true;
-          } else {
-            isEdgeDimmed = true;
-          }
+          const inStruct = structureHighlightNodeIds.has(edge.source) && structureHighlightNodeIds.has(edge.target);
+          if (!inStruct) isDimmed = true;
         } else if (focusedNode) {
-          if (isNeighborEdge) {
-            isEdgeSolid = true;
-          } else {
-            isEdgeDimmed = true;
-          }
+          if (!isHighlighted && !isIncident) isDimmed = true;
         }
 
         ctx.save();
-        
-        // Edge styling: Thickness (1-9), Line style (dashed / solid), Color
-        const edgeThick = edge.thickness || defaultThickness;
-        const strokeColor = edge.color || defaultEdgeColor;
-        const isDashed = edge.style === 'dashed' || edge.lineStyle === 'dashed';
-
-        let strokeAlpha = baseOpacity;
-        if (isEdgeHovered || isEdgeSolid) {
-          strokeAlpha = 0.95;
-        } else if (isEdgeDimmed) {
-          strokeAlpha = baseOpacity * 0.12;
-        }
-
-        const lineWidth = (isEdgeHovered || isEdgeSolid ? edgeThick * 1.5 : edgeThick);
-
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = isEdgeHovered || isEdgeSolid ? (edge.color || '#38bdf8') : strokeColor;
-        ctx.globalAlpha = strokeAlpha;
-
-        if (isDashed) {
-          ctx.setLineDash([8, 6]);
-        } else {
-          ctx.setLineDash([]);
-        }
+        ctx.strokeStyle = edge.color || defaultEdgeColor;
+        ctx.globalAlpha = isDimmed ? 0.12 : (isHighlighted || isHovered ? 1.0 : 0.65);
+        ctx.lineWidth = (isHovered || isHighlighted ? 2.8 : 1.4);
 
         const dx = tgt.x - src.x;
         const dy = tgt.y - src.y;
@@ -497,53 +468,32 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         }
 
         ctx.save();
-        ctx.globalAlpha = isDimmed ? 0.12 : 1.0;
+        const r = node.radius || 16;
 
-        const radius = node.radius || 16;
+        ctx.globalAlpha = isDimmed ? 0.18 : 1.0;
 
-        // Smooth glow halo
-        if (isSelected || isHovered || isPinned || isSolid || radius > 24) {
-          const glowGrad = ctx.createRadialGradient(node.x, node.y, radius * 0.6, node.x, node.y, radius * 2.2);
-          glowGrad.addColorStop(0, node.color + (isSelected || isHovered || isPinned || isSolid ? '99' : '44'));
-          glowGrad.addColorStop(1, 'transparent');
-          ctx.fillStyle = glowGrad;
+        // Selection / Hover / Pinned Glow Effect
+        if (isSelected || isHovered || isPinned || isSolid) {
           ctx.beginPath();
-          ctx.arc(node.x, node.y, radius * 2.2, 0, Math.PI * 2);
+          ctx.arc(node.x, node.y, r + (isSelected ? 8 : 5), 0, Math.PI * 2);
+          ctx.fillStyle = isSelected
+            ? 'rgba(56, 189, 248, 0.35)'
+            : (isPinned ? 'rgba(16, 185, 129, 0.3)' : `${node.color}33`);
           ctx.fill();
         }
 
-        // Solid smooth gradient circle (No black contour outline)
-        const fillGrad = ctx.createRadialGradient(
-          node.x - radius * 0.3,
-          node.y - radius * 0.3,
-          radius * 0.1,
-          node.x,
-          node.y,
-          radius
-        );
-        fillGrad.addColorStop(0, '#ffffff');
-        fillGrad.addColorStop(0.35, node.color);
-        fillGrad.addColorStop(1, shadeColor(node.color, -30));
-
-        ctx.fillStyle = fillGrad;
+        // Solid Node Circle (strictly clean, no stroke contour)
         ctx.beginPath();
-        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = node.color || '#38bdf8';
         ctx.fill();
 
-        // Info Badge indicator icon [i] / [✓]
-        if (node.infoBadge) {
-          const badgeX = node.x + radius * 0.75;
-          const badgeY = node.y - radius * 0.75;
-          ctx.fillStyle = isPinned ? '#10b981' : '#3b82f6';
+        // Assistant newly added node indicator
+        if (node.isAssistantProposal) {
           ctx.beginPath();
-          ctx.arc(badgeX, badgeY, 5.5, 0, Math.PI * 2);
+          ctx.arc(node.x + r * 0.7, node.y - r * 0.7, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#fbbf24';
           ctx.fill();
-
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 8px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(isPinned ? '✓' : 'i', badgeX, badgeY);
         }
 
         ctx.restore();
@@ -590,17 +540,15 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
           const textLengthMax = Math.max(enText.length * fontSizeEn * 0.58, cnText.length * fontSizeCn * 1.1);
           const boxWidth = textLengthMax + 8;
-          const boxHeight = fontSizeEn + (cnText ? fontSizeCn + 4 : 0) + 4;
-
+          const boxHeight = fontSizeEn + (cnText && cnText !== enText ? fontSizeCn + 4 : 0) + 4;
           const boxX = node.x - boxWidth / 2;
-          const boxY = node.y + r + 4;
+          const boxY = node.y + r + 3;
 
-          let priority = r * 10 + (node.weight || 0);
-          if (isSelected) priority += 10000;
-          if (isHovered) priority += 5000;
-          if (isPinned) priority += 7000;
-          if (!isDimmed) priority += 1000;
-          if (node.type === 'chapter') priority += 800;
+          let priority = node.sizeLevel || 3;
+          if (isSelected) priority += 100;
+          if (isHovered) priority += 80;
+          if (isPinned) priority += 60;
+          if (focusedNode && neighborSet.has(node.id)) priority += 40;
 
           candidates.push({
             node,
@@ -682,67 +630,26 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         });
       }
 
-      // 4. Render Node Information Badge Callouts
-      const nodeBadgeTargets = new Set<GraphNode>();
-      pinnedBadgeNodeIds.forEach(id => {
-        const n = nodeMap.get(id);
-        if (n && n.infoBadge?.content !== undefined && n.infoBadge.content !== '') {
-          nodeBadgeTargets.add(n);
-        }
-      });
+      // 4. Draw Dashed Connector Lines for Node Cards & Update Real-Time DOM Position
+      const activeNodeIdsSet = new Set<string>();
+      pinnedBadgeNodeIds.forEach(id => activeNodeIdsSet.add(id));
+      if (hoveredNodeRef.current?.id) activeNodeIdsSet.add(hoveredNodeRef.current.id);
 
-      if (hoveredNode && hoveredNode.infoBadge?.content !== undefined && hoveredNode.infoBadge.content !== '') {
-        nodeBadgeTargets.add(hoveredNode);
-      }
+      activeNodeIdsSet.forEach(nodeId => {
+        const targetNode = nodeMap.get(nodeId);
+        if (!targetNode || !targetNode.infoBadge?.content) return;
 
-      nodeBadgeTargets.forEach(targetNode => {
-        const badgeRawContent = targetNode.infoBadge?.content;
-        if (badgeRawContent === undefined || badgeRawContent === '') return;
-
-        ctx.save();
-        
         const scaleMul = targetNode.badgeScale || targetNode.infoBadge?.scale || 1.0;
         const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
-        const baseBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
-        const baseLineH = defaultGraphConfig?.cardStyles?.lineHeight || 24;
         const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
-        
-        const bodyFontSize = baseBodySize * scaleMul;
-        const headerFontSize = baseHeaderSize * scaleMul; // Header reduced by 25%
-        const lineHeight = baseLineH * scaleMul;
-        const sqSize = bodyFontSize * 1.25;
+        const headerFontSize = baseHeaderSize * scaleMul;
         const cardPadding = basePad * scaleMul;
         const nodeRadius = targetNode.radius || 16;
-
-        const { lines: formattedLines, maxLineWidth } = formatBadgeContent(
-          badgeRawContent,
-          (txt, isBold, isLatex) => {
-            if (isLatex) {
-              ctx.font = `italic ${bodyFontSize}px "KaTeX_Math", "Times New Roman", serif`;
-              return ctx.measureText(latexToCanvasText(txt)).width + 3 * scaleMul;
-            }
-            ctx.font = isBold
-              ? `bold ${bodyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`
-              : `${bodyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`;
-            return ctx.measureText(txt).width;
-          },
-          bodyFontSize
-        );
-
-        const headerTitle = `${targetNode.labelEn}${targetNode.labelCn && targetNode.labelCn !== targetNode.labelEn ? ` | ${targetNode.labelCn}` : ''}`;
-        ctx.font = `bold ${headerFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`;
-        const headerWidth = ctx.measureText(headerTitle).width;
-        const headerHeight = headerFontSize + 6 * scaleMul;
-
-        // Content width includes both the header and all body lines
-        const contentWidth = Math.max(headerWidth, maxLineWidth);
-        const cardWidth = Math.max(140 * scaleMul, contentWidth + cardPadding * 2);
-        const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
 
         const cardX = targetNode.x + nodeRadius + 16;
         const cardY = targetNode.y - 20;
 
-        // Connector line
+        ctx.save();
         ctx.strokeStyle = targetNode.color;
         ctx.lineWidth = 1.4 * scaleMul;
         ctx.setLineDash([3 * scaleMul, 2 * scaleMul]);
@@ -750,94 +657,38 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.moveTo(targetNode.x + nodeRadius * 0.7, targetNode.y - nodeRadius * 0.7);
         ctx.lineTo(cardX, cardY + cardPadding + headerFontSize / 2);
         ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Card Background (rounded)
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
-        roundRect(ctx, cardX, cardY, cardWidth, cardHeight, 8 * scaleMul);
-        ctx.fill();
-
-        // Card Border
-        ctx.strokeStyle = targetNode.color;
-        ctx.lineWidth = 1.8 * scaleMul;
-        roundRect(ctx, cardX, cardY, cardWidth, cardHeight, 8 * scaleMul);
-        ctx.stroke();
-
-        // Header Title
-        ctx.fillStyle = targetNode.color;
-        ctx.font = `bold ${headerFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(headerTitle, cardX + cardPadding, cardY + cardPadding);
-
-        // Separator line
-        const sepY = cardY + cardPadding + headerFontSize + 4 * scaleMul;
-        ctx.strokeStyle = targetNode.color + '44';
-        ctx.lineWidth = 1 * scaleMul;
-        ctx.beginPath();
-        ctx.moveTo(cardX + cardPadding, sepY);
-        ctx.lineTo(cardX + cardWidth - cardPadding, sepY);
-        ctx.stroke();
-
-        // Draw Formatted Lines with symmetric padding
-        const linesStartY = sepY + 6 * scaleMul;
-        formattedLines.forEach((line, lineIdx) => {
-          let curX = cardX + cardPadding;
-          const curY = linesStartY + lineIdx * lineHeight;
-
-          line.segments.forEach(seg => {
-            if (seg.type === 'square') {
-              const sqY = curY + (lineHeight - sqSize) / 2 - 1;
-              ctx.fillStyle = seg.squareColor || '#fbbf24';
-              roundRect(ctx, curX, sqY, sqSize, sqSize, 2 * scaleMul);
-              ctx.fill();
-              curX += sqSize + 4 * scaleMul;
-            } else if (seg.type === 'latex') {
-              ctx.font = `italic ${bodyFontSize}px "KaTeX_Math", "Times New Roman", serif`;
-              ctx.fillStyle = '#7dd3fc';
-              ctx.textBaseline = 'top';
-              const mathTxt = latexToCanvasText(seg.text || '');
-              ctx.fillText(mathTxt, curX, curY);
-              curX += ctx.measureText(mathTxt).width + 3 * scaleMul;
-            } else if (seg.type === 'bold') {
-              ctx.font = `bold ${bodyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`;
-              ctx.fillStyle = '#ffffff';
-              ctx.textBaseline = 'top';
-              ctx.fillText(seg.text || '', curX, curY);
-              curX += ctx.measureText(seg.text || '').width;
-            } else {
-              ctx.font = `${bodyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`;
-              ctx.fillStyle = '#e2e8f0';
-              ctx.textBaseline = 'top';
-              ctx.fillText(seg.text || '', curX, curY);
-              curX += ctx.measureText(seg.text || '').width;
-            }
-          });
-        });
-
         ctx.restore();
+
+        const cardEl = document.getElementById(`info-card-overlay-node-${targetNode.id}`);
+        if (cardEl) {
+          const screenX = cardX * scale + panX;
+          const screenY = cardY * scale + panY;
+          cardEl.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${scale})`;
+        }
       });
 
-      // 5. Render Edge Information Badge Callouts
-      const edgeBadgeTargets = new Set<GraphEdge>();
-      pinnedBadgeEdgeIds.forEach(id => {
-        const e = edges.find(edge => edge.id === id);
-        if (e && e.infoBadge?.content) edgeBadgeTargets.add(e);
-      });
-      if (hoveredEdge && hoveredEdge.infoBadge?.content) {
-        edgeBadgeTargets.add(hoveredEdge);
-      }
+      // 5. Draw Dashed Connector Lines for Edge Cards & Update Real-Time DOM Position
+      const activeEdgeIdsSet = new Set<string>();
+      pinnedBadgeEdgeIds.forEach(id => activeEdgeIdsSet.add(id));
+      if (hoveredEdgeRef.current?.id) activeEdgeIdsSet.add(hoveredEdgeRef.current.id);
 
-      edgeBadgeTargets.forEach(targetEdge => {
+      activeEdgeIdsSet.forEach(edgeId => {
+        const targetEdge = edges.find(e => e.id === edgeId);
+        if (!targetEdge || !targetEdge.infoBadge?.content) return;
+
         const src = nodeMap.get(targetEdge.source);
         const tgt = nodeMap.get(targetEdge.target);
         if (!src || !tgt) return;
 
-        const badgeRawContent = targetEdge.infoBadge?.content;
-        if (!badgeRawContent) return;
-
-        ctx.save();
         const edgeColor = targetEdge.color || defaultEdgeColor;
+        const scaleMul = targetEdge.badgeScale !== undefined
+          ? targetEdge.badgeScale
+          : (targetEdge.infoBadge?.scale !== undefined ? targetEdge.infoBadge.scale : 1.0);
+
+        const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
+        const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
+        const headerFontSize = baseHeaderSize * scaleMul;
+        const cardPadding = basePad * scaleMul;
 
         const dx = tgt.x - src.x;
         const dy = tgt.y - src.y;
@@ -856,133 +707,25 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           midPt = getBezierMidPoint(src.x, src.y, cx, cy, tgt.x, tgt.y);
         }
 
-        const scaleMul = targetEdge.badgeScale !== undefined
-          ? targetEdge.badgeScale
-          : (targetEdge.infoBadge?.scale !== undefined ? targetEdge.infoBadge.scale : 1.0);
+        const cardX = midPt.x + 12;
+        const cardY = midPt.y - 12;
 
-        const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
-        const baseBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
-        const baseLineH = defaultGraphConfig?.cardStyles?.lineHeight || 24;
-        const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
-
-        const bodyFontSize = baseBodySize * scaleMul;
-        const headerFontSize = baseHeaderSize * scaleMul;
-        const lineHeight = baseLineH * scaleMul;
-        const sqSize = bodyFontSize * 1.25;
-        const cardPadding = basePad * scaleMul;
-
-        // First node is the one with greater weight
-        const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;
-        const secondNode = firstNode === src ? tgt : src;
-
-        // Language toggle support ('cn' by default, or 'en')
-        const edgeLang = targetEdge.badgeLanguage || 'cn';
-        const label1 = edgeLang === 'en' ? firstNode.labelEn : (firstNode.labelCn || firstNode.labelEn);
-        const label2 = edgeLang === 'en' ? secondNode.labelEn : (secondNode.labelCn || secondNode.labelEn);
-        const headerTitle = `${label1} ↔ ${label2}`;
-
-        ctx.font = `bold ${headerFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`;
-        const headerWidth = ctx.measureText(headerTitle).width;
-        const headerHeight = headerFontSize + 6 * scaleMul;
-
-        // Wrap body lines so they fit within the header line width
-        const maxWrapWidth = Math.max(160 * scaleMul, headerWidth);
-
-        const { lines: formattedLines, maxLineWidth } = formatBadgeContent(
-          badgeRawContent,
-          (txt, isBold, isLatex) => {
-            if (isLatex) {
-              ctx.font = `italic ${bodyFontSize}px "KaTeX_Math", "Times New Roman", serif`;
-              return ctx.measureText(latexToCanvasText(txt)).width + 3 * scaleMul;
-            }
-            ctx.font = isBold
-              ? `bold ${bodyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`
-              : `${bodyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`;
-            return ctx.measureText(txt).width;
-          },
-          bodyFontSize,
-          maxWrapWidth
-        );
-
-        // Symmetric padding: right padding equals left padding
-        const contentWidth = Math.max(headerWidth, maxLineWidth);
-        const cardWidth = Math.max(140 * scaleMul, contentWidth + cardPadding * 2);
-        const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
-
-        const cardX = midPt.x + 12 * scaleMul;
-        const cardY = midPt.y - cardHeight / 2;
-
-        // Connector line
+        ctx.save();
         ctx.strokeStyle = edgeColor;
-        ctx.lineWidth = 1.4 * scaleMul;
-        ctx.setLineDash([2 * scaleMul, 2 * scaleMul]);
+        ctx.lineWidth = 1.2 * scaleMul;
+        ctx.setLineDash([3 * scaleMul, 2 * scaleMul]);
         ctx.beginPath();
         ctx.moveTo(midPt.x, midPt.y);
         ctx.lineTo(cardX, cardY + cardPadding + headerFontSize / 2);
         ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Rectangular background (rx = 0)
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
-        ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
-
-        // Rectangular border matching edge line color (rx = 0)
-        ctx.strokeStyle = edgeColor;
-        ctx.lineWidth = 1.8 * scaleMul;
-        ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
-
-        // Header title in exact same style as node badge
-        ctx.fillStyle = edgeColor;
-        ctx.font = `bold ${headerFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(headerTitle, cardX + cardPadding, cardY + cardPadding);
-
-        // Header separator line
-        const sepY = cardY + cardPadding + headerFontSize + 4 * scaleMul;
-        ctx.strokeStyle = edgeColor + '44';
-        ctx.lineWidth = 1 * scaleMul;
-        ctx.beginPath();
-        ctx.moveTo(cardX + cardPadding, sepY);
-        ctx.lineTo(cardX + cardWidth - cardPadding, sepY);
-        ctx.stroke();
-
-        // Formatted content lines with symmetric margin
-        const linesStartY = sepY + 6 * scaleMul;
-        formattedLines.forEach((line, lineIdx) => {
-          let curX = cardX + cardPadding;
-          const curY = linesStartY + lineIdx * lineHeight;
-
-          line.segments.forEach(seg => {
-            if (seg.type === 'square') {
-              const sqY = curY + (lineHeight - sqSize) / 2 - 1;
-              ctx.fillStyle = seg.squareColor || '#fbbf24';
-              ctx.fillRect(curX, sqY, sqSize, sqSize);
-              curX += sqSize + 4 * scaleMul;
-            } else if (seg.type === 'latex') {
-              ctx.font = `italic ${bodyFontSize}px "KaTeX_Math", "Times New Roman", serif`;
-              ctx.fillStyle = '#7dd3fc';
-              ctx.textBaseline = 'top';
-              const mathTxt = latexToCanvasText(seg.text || '');
-              ctx.fillText(mathTxt, curX, curY);
-              curX += ctx.measureText(mathTxt).width + 3 * scaleMul;
-            } else if (seg.type === 'bold') {
-              ctx.font = `bold ${bodyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-              ctx.fillStyle = '#ffffff';
-              ctx.textBaseline = 'top';
-              ctx.fillText(seg.text || '', curX, curY);
-              curX += ctx.measureText(seg.text || '').width;
-            } else {
-              ctx.font = `${bodyFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-              ctx.fillStyle = '#e2e8f0';
-              ctx.textBaseline = 'top';
-              ctx.fillText(seg.text || '', curX, curY);
-              curX += ctx.measureText(seg.text || '').width;
-            }
-          });
-        });
-
         ctx.restore();
+
+        const cardEl = document.getElementById(`info-card-overlay-edge-${targetEdge.id}`);
+        if (cardEl) {
+          const screenX = cardX * scale + panX;
+          const screenY = cardY * scale + panY;
+          cardEl.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${scale})`;
+        }
       });
 
       ctx.restore();
@@ -992,12 +735,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     };
 
     requestRef.current = requestAnimationFrame(render);
-
     return () => {
       active = false;
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-      }
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   }, [
     nodes,
@@ -1009,6 +749,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     pinnedBadgeEdgeIds,
     structureHighlightNodeIds,
     fullscreenSearchHighlight,
+    nodeMap,
+    defaultEdgeColor,
   ]);
 
   const screenToWorld = useCallback((screenX: number, screenY: number) => {
@@ -1022,10 +764,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const getNodeAtPosition = useCallback((worldX: number, worldY: number): GraphNode | null => {
     for (let i = nodes.length - 1; i >= 0; i--) {
       const node = nodes[i];
+      const r = (node.radius || 16) + 4;
       const dx = worldX - node.x;
       const dy = worldY - node.y;
-      const radius = node.radius || 16;
-      if (dx * dx + dy * dy <= (radius + 8) * (radius + 8)) {
+      if (dx * dx + dy * dy <= r * r) {
         return node;
       }
     }
@@ -1033,9 +775,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   }, [nodes]);
 
   const getEdgeAtPosition = useCallback((worldX: number, worldY: number): GraphEdge | null => {
-    const nodeMap = new Map<string, GraphNode>();
-    nodes.forEach(n => nodeMap.set(n.id, n));
-
     for (let i = edges.length - 1; i >= 0; i--) {
       const edge = edges[i];
       const src = nodeMap.get(edge.source);
@@ -1065,9 +804,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     }
     return null;
-  }, [nodes, edges, settings.showCurvedEdges]);
+  }, [nodes, edges, nodeMap, settings.showCurvedEdges]);
 
-  // Requirement 4: Mouse Down handling - RMB dragging ALWAYS pans without interfering with edges/nodes
+  // Mouse Down handling - RMB dragging ALWAYS pans without interfering with edges/nodes
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1176,9 +915,22 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
     const hoveredN = getNodeAtPosition(worldPos.x, worldPos.y);
     hoveredNodeRef.current = hoveredN;
+    if (hoveredN?.id !== hoveredNodeId) {
+      setHoveredNodeId(hoveredN ? hoveredN.id : null);
+    }
 
     const hoveredE = hoveredN ? null : getEdgeAtPosition(worldPos.x, worldPos.y);
     hoveredEdgeRef.current = hoveredE;
+    if (hoveredE?.id !== hoveredEdgeId) {
+      setHoveredEdgeId(hoveredE ? hoveredE.id : null);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    hoveredNodeRef.current = null;
+    hoveredEdgeRef.current = null;
+    setHoveredNodeId(null);
+    setHoveredEdgeId(null);
   };
 
   // Mouse Up handling for RMB click vs double RMB click vs dragging
@@ -1197,11 +949,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const now = Date.now();
           const last = lastRmbEdgeClickTime.current;
           if (last && last.edgeId === rmbHitEdge.current.id && now - last.time < 380) {
-            // Double RMB click detected on edge -> open Edge Settings Inspector
             lastRmbEdgeClickTime.current = null;
             onOpenEdgeSettings?.(rmbHitEdge.current);
           } else {
-            // First RMB click on edge -> record timestamp
             lastRmbEdgeClickTime.current = { edgeId: rmbHitEdge.current.id, time: now };
           }
         }
@@ -1253,8 +1003,106 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     });
   };
 
+  // Helper to render Markdown + KaTeX formatted content
+  const renderMarkdownFormatted = (raw: string) => {
+    if (!raw) return null;
+    const rawLines = raw.split(/\r?\n/);
+    return rawLines.map((line, lineIdx) => {
+      if (!line) {
+        return <div key={lineIdx} className="h-2.5" />;
+      }
+      const segments = tokenizeLine(line);
+      return (
+        <div key={lineIdx} className="min-h-[1.25em] my-0.5 leading-relaxed flex items-center flex-wrap gap-x-1">
+          {segments.map((seg, segIdx) => {
+            if (seg.type === 'bold') {
+              return (
+                <strong key={segIdx} className="font-bold text-white">
+                  {seg.text}
+                </strong>
+              );
+            }
+            if (seg.type === 'square') {
+              return (
+                <span
+                  key={segIdx}
+                  className="inline-block rounded-[3px] shadow-sm shrink-0 mx-0.5 align-middle"
+                  style={{
+                    backgroundColor: seg.squareColor || BADGE_SQUARE_COLORS.yellow,
+                    width: '1.1em',
+                    height: '1.1em',
+                  }}
+                />
+              );
+            }
+            if (seg.type === 'latex') {
+              const rawLatex = seg.latex || seg.text || '';
+              return (
+                <span
+                  key={segIdx}
+                  className="inline-block px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
+                  dangerouslySetInnerHTML={{ __html: renderLatexToHtml(rawLatex) }}
+                />
+              );
+            }
+            return (
+              <span key={segIdx} className="text-slate-200">
+                {seg.text}
+              </span>
+            );
+          })}
+        </div>
+      );
+    });
+  };
+
+  // Active Pinned / Hovered Node cards
+  const activeNodeCards = useMemo(() => {
+    const list: GraphNode[] = [];
+    const seen = new Set<string>();
+    pinnedBadgeNodeIds.forEach(id => {
+      const n = nodes.find(node => node.id === id);
+      if (n && n.infoBadge?.content) {
+        list.push(n);
+        seen.add(n.id);
+      }
+    });
+    if (hoveredNodeId && !seen.has(hoveredNodeId)) {
+      const hn = nodes.find(n => n.id === hoveredNodeId);
+      if (hn && hn.infoBadge?.content) {
+        list.push(hn);
+      }
+    }
+    return list;
+  }, [nodes, pinnedBadgeNodeIds, hoveredNodeId]);
+
+  // Active Pinned / Hovered Edge cards
+  const activeEdgeCards = useMemo(() => {
+    const list: GraphEdge[] = [];
+    const seen = new Set<string>();
+    pinnedBadgeEdgeIds.forEach(id => {
+      const e = edges.find(edge => edge.id === id);
+      if (e && e.infoBadge?.content) {
+        list.push(e);
+        seen.add(e.id);
+      }
+    });
+    if (hoveredEdgeId && !seen.has(hoveredEdgeId)) {
+      const he = edges.find(e => e.id === hoveredEdgeId);
+      if (he && he.infoBadge?.content) {
+        list.push(he);
+      }
+    }
+    return list;
+  }, [edges, pinnedBadgeEdgeIds, hoveredEdgeId]);
+
   return (
-    <div ref={containerRef} className="relative w-full h-full select-none overflow-hidden bg-slate-950" onContextMenu={handleContextMenu}>
+    <div
+      ref={containerRef}
+      className="relative w-full h-full select-none overflow-hidden bg-slate-950"
+      onContextMenu={handleContextMenu}
+      onMouseLeave={handleMouseLeave}
+    >
       <canvas
         ref={canvasRef}
         className="w-full h-full cursor-grab active:cursor-grabbing block"
@@ -1265,37 +1113,182 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
       />
+
+      {/* HTML / KaTeX DOM Overlay for Node and Edge Information Cards */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+        {activeNodeCards.map(targetNode => {
+          const badgeRawContent = targetNode.infoBadge?.content;
+          if (!badgeRawContent) return null;
+
+          const scaleMul = targetNode.badgeScale || targetNode.infoBadge?.scale || 1.0;
+          const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
+          const baseBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
+          const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
+
+          const headerFontSize = baseHeaderSize * scaleMul;
+          const bodyFontSize = baseBodySize * scaleMul;
+          const cardPadding = basePad * scaleMul;
+          const headerTitle = `${targetNode.labelEn}${targetNode.labelCn && targetNode.labelCn !== targetNode.labelEn ? ` | ${targetNode.labelCn}` : ''}`;
+          const isPinned = pinnedBadgeNodeIds.has(targetNode.id);
+
+          const nodeRadius = targetNode.radius || 16;
+          const cardX = targetNode.x + nodeRadius + 16;
+          const cardY = targetNode.y - 20;
+          const screenX = cardX * transform.k + transform.x;
+          const screenY = cardY * transform.k + transform.y;
+
+          return (
+            <div
+              key={targetNode.id}
+              id={`info-card-overlay-node-${targetNode.id}`}
+              className="pointer-events-auto absolute top-0 left-0 rounded-lg shadow-2xl transition-shadow select-text"
+              style={{
+                transform: `translate3d(${screenX}px, ${screenY}px, 0) scale(${transform.k})`,
+                transformOrigin: 'top left',
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                border: `${1.8 * scaleMul}px solid ${targetNode.color}`,
+                padding: `${cardPadding}px`,
+                maxWidth: `${Math.max(280, 380 * scaleMul)}px`,
+                minWidth: `${Math.max(160, 200 * scaleMul)}px`,
+                zIndex: isPinned ? 20 : 30,
+              }}
+            >
+              {/* Header Title */}
+              <div
+                className="font-bold border-b pb-1.5 mb-2 flex items-center justify-between gap-2"
+                style={{
+                  color: targetNode.color,
+                  fontSize: `${headerFontSize}px`,
+                  borderColor: `${targetNode.color}44`,
+                }}
+              >
+                <span className="truncate">{headerTitle}</span>
+                {isPinned && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      onTogglePinNodeBadge(targetNode.id);
+                    }}
+                    title="Close / Unpin"
+                    className="opacity-70 hover:opacity-100 text-slate-300 hover:text-white transition p-0.5 rounded hover:bg-slate-800"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Body KaTeX Div Block */}
+              <div
+                className="text-slate-200 leading-relaxed font-sans"
+                style={{ fontSize: `${bodyFontSize}px` }}
+              >
+                {renderMarkdownFormatted(badgeRawContent)}
+              </div>
+            </div>
+          );
+        })}
+
+        {activeEdgeCards.map(targetEdge => {
+          const badgeRawContent = targetEdge.infoBadge?.content;
+          if (!badgeRawContent) return null;
+
+          const src = nodeMap.get(targetEdge.source);
+          const tgt = nodeMap.get(targetEdge.target);
+          if (!src || !tgt) return null;
+
+          const scaleMul = targetEdge.badgeScale !== undefined
+            ? targetEdge.badgeScale
+            : (targetEdge.infoBadge?.scale !== undefined ? targetEdge.infoBadge.scale : 1.0);
+
+          const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
+          const baseBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
+          const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
+
+          const headerFontSize = baseHeaderSize * scaleMul;
+          const bodyFontSize = baseBodySize * scaleMul;
+          const cardPadding = basePad * scaleMul;
+
+          const edgeColor = targetEdge.color || defaultEdgeColor;
+          const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;
+          const secondNode = firstNode === src ? tgt : src;
+          const edgeLang = targetEdge.badgeLanguage || 'cn';
+          const label1 = edgeLang === 'en' ? firstNode.labelEn : (firstNode.labelCn || firstNode.labelEn);
+          const label2 = edgeLang === 'en' ? secondNode.labelEn : (secondNode.labelCn || secondNode.labelEn);
+          const headerTitle = `${label1} ↔ ${label2}`;
+          const isPinned = pinnedBadgeEdgeIds.has(targetEdge.id);
+
+          let midPt = { x: (src.x + tgt.x) / 2, y: (src.y + tgt.y) / 2 };
+          const dx = tgt.x - src.x;
+          const dy = tgt.y - src.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (settings.showCurvedEdges && dist > 1) {
+            const curvatureFactor = targetEdge.curvature || 0.18;
+            const mx = (src.x + tgt.x) / 2;
+            const my = (src.y + tgt.y) / 2;
+            const nx = -dy / dist;
+            const ny = dx / dist;
+            const offsetDist = dist * curvatureFactor;
+            const cx = mx + nx * offsetDist;
+            const cy = my + ny * offsetDist;
+            midPt = getBezierMidPoint(src.x, src.y, cx, cy, tgt.x, tgt.y);
+          }
+
+          const cardX = midPt.x + 12;
+          const cardY = midPt.y - 12;
+          const screenX = cardX * transform.k + transform.x;
+          const screenY = cardY * transform.k + transform.y;
+
+          return (
+            <div
+              key={targetEdge.id}
+              id={`info-card-overlay-edge-${targetEdge.id}`}
+              className="pointer-events-auto absolute top-0 left-0 rounded-lg shadow-2xl transition-shadow select-text"
+              style={{
+                transform: `translate3d(${screenX}px, ${screenY}px, 0) scale(${transform.k})`,
+                transformOrigin: 'top left',
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                border: `${1.8 * scaleMul}px solid ${edgeColor}`,
+                padding: `${cardPadding}px`,
+                maxWidth: `${Math.max(280, 380 * scaleMul)}px`,
+                minWidth: `${Math.max(160, 200 * scaleMul)}px`,
+                zIndex: isPinned ? 20 : 30,
+              }}
+            >
+              {/* Header Title */}
+              <div
+                className="font-bold border-b pb-1.5 mb-2 flex items-center justify-between gap-2"
+                style={{
+                  color: edgeColor,
+                  fontSize: `${headerFontSize}px`,
+                  borderColor: `${edgeColor}44`,
+                }}
+              >
+                <span className="truncate">{headerTitle}</span>
+                {isPinned && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      onTogglePinEdgeBadge(targetEdge.id);
+                    }}
+                    title="Close / Unpin"
+                    className="opacity-70 hover:opacity-100 text-slate-300 hover:text-white transition p-0.5 rounded hover:bg-slate-800"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Body KaTeX Div Block */}
+              <div
+                className="text-slate-200 leading-relaxed font-sans"
+                style={{ fontSize: `${bodyFontSize}px` }}
+              >
+                {renderMarkdownFormatted(badgeRawContent)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
-
-function shadeColor(color: string, percent: number): string {
-  let num = parseInt(color.replace('#', ''), 16);
-  if (isNaN(num)) return color;
-  const amt = Math.round(2.55 * percent);
-  const R = Math.max(0, Math.min(255, (num >> 16) + amt));
-  const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00ff) + amt));
-  const B = Math.max(0, Math.min(255, (num & 0x0000ff) + amt));
-  return `#${(0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}

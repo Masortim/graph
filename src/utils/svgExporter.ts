@@ -290,7 +290,7 @@ export function generateGraphSvg(
           svgContent += `    <rect x="${curX.toFixed(1)}" y="${sqY.toFixed(1)}" width="${sqSize.toFixed(1)}" height="${sqSize.toFixed(1)}" rx="${(2 * scaleMul).toFixed(1)}" ry="${(2 * scaleMul).toFixed(1)}" fill="${seg.squareColor || '#fbbf24'}" />\n`;
           curX += sqSize + 4 * scaleMul;
         } else if (seg.type === 'latex') {
-          const mathTxt = latexToCanvasText(seg.text || '');
+          const mathTxt = latexToCanvasText(seg.latex || seg.text || '');
           svgContent += `    <text x="${curX.toFixed(1)}" y="${(lineY + bodyFontSize * 0.85).toFixed(1)}" font-size="${bodyFontSize.toFixed(1)}px" font-style="italic" fill="#7dd3fc">${escapeXml(mathTxt)}</text>\n`;
           curX += mathTxt.length * (bodyFontSize * 0.62) + 3;
         } else if (seg.type === 'bold') {
@@ -375,7 +375,7 @@ export function generateGraphSvg(
           svgContent += `    <rect x="${curX.toFixed(1)}" y="${sqY.toFixed(1)}" width="${sqSize.toFixed(1)}" height="${sqSize.toFixed(1)}" fill="${seg.squareColor || '#fbbf24'}" />\n`;
           curX += sqSize + 4 * scaleMul;
         } else if (seg.type === 'latex') {
-          const mathTxt = latexToCanvasText(seg.text || '');
+          const mathTxt = latexToCanvasText(seg.latex || seg.text || '');
           svgContent += `    <text x="${curX.toFixed(1)}" y="${(lineY + bodyFontSize * 0.85).toFixed(1)}" font-size="${bodyFontSize.toFixed(1)}px" font-style="italic" fill="#7dd3fc">${escapeXml(mathTxt)}</text>\n`;
           curX += mathTxt.length * (bodyFontSize * 0.62) + 3 * scaleMul;
         } else if (seg.type === 'bold') {

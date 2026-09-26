@@ -1,0 +1,244 @@
+================================================================================
+CHANGELOG & MODIFIED FILES SUMMARY - GITHUB LINEAR ALGEBRA WEB V1.2.0
+Version: 1.2.0
+Date: 2026-09-27
+================================================================================
+
+This document details all modified source files, exact updated code sections,
+line locations, and explanations of fixes applied in version 1.2.0.
+
+--------------------------------------------------------------------------------
+1. FILE: src/components/GraphCanvas.tsx
+--------------------------------------------------------------------------------
+Fixes / Enhancements:
+- Replaced 2D canvas Unicode approximations of floating info cards with a dedicated
+  HTML/DOM overlay that uses full KaTeX HTML rendering (identical to the node menu info card).
+- Rendered matrices ($egin{pmatrix} 1&4\\ 4&3\end{pmatrix}$), fractions ($rac{1}{2}$),
+  vertically stacked exponents and indices ($x_1^2$), daggers ($x^\dagger$), and math symbols
+  in their true mathematical layout within a dedicated inner <div> block.
+- Maintained 60fps real-time tracking (translate3d + scale) in the animation loop
+  so info cards smoothly follow nodes and edges during physics animation or dragging.
+- Preserved canvas dashed connector lines from nodes/edges to info cards.
+- Highlighted edges between neighbor nodes when hovering (Requirement 2).
+- Distinguished LMB drag (moves node) from LMB click (opens inspector) and double click (pins badge).
+
+Key Code Sections:
+* Imports (Lines 1-8):
+  Added:
+    import { tokenizeLine, BADGE_SQUARE_COLORS } from '../utils/badgeFormatter';
+    import { renderLatexToHtml } from '../utils/latexRenderer';
+    import { X } from 'lucide-react';
+
+* Neighbor Edge Highlighting (Lines 340-360):
+  Added logic to include all edges where both endpoints belong to neighborSet:
+    edges.forEach(e => {
+      if (neighborSet.has(e.source) && neighborSet.has(e.target)) {
+        highlightedEdgeSet.add(e.id);
+      }
+    });
+
+* Animation Loop - Connector Lines & Real-time Tracking (Lines 680-770):
+  Replaced canvas text drawing with dashed connector line rendering on canvas
+  and real-time DOM element transform synchronization:
+    const cardEl = document.getElementById(`info-card-overlay-node-${targetNode.id}`);
+    if (cardEl) {
+      const screenX = cardX * scale + panX;
+      const screenY = cardY * scale + panY;
+      cardEl.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${scale})`;
+    }
+
+* LMB Drag vs Click Detection (Lines 835-860, 890-915, 935-955):
+  In handleMouseDown:
+    lmbStartPos.current = { x: clientX, y: clientY };
+    hasLmbMoved.current = false;
+    lmbHitNode.current = hitNode;
+    if (hitNode) {
+      isDraggingNode.current = hitNode;
+      hitNode.isFixed = true;
+    }
+  In handleMouseMove:
+    if (Math.hypot(clientX - lmbStartPos.current.x, clientY - lmbStartPos.current.y) > 4) {
+      hasLmbMoved.current = true;
+    }
+  In handleMouseUp:
+    if (!hasLmbMoved.current) {
+      if (lmbHitNode.current) onSelectNode(lmbHitNode.current);
+      else onSelectNode(null);
+    }
+
+* DOM Overlay Layer with KaTeX Div Block (Lines 1000-1160):
+  Added DOM overlay rendering inside container:
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+      {activeNodeCards.map(targetNode => (
+        <div key={targetNode.id} id={`info-card-overlay-node-${targetNode.id}`} ...>
+          <div className="font-bold border-b pb-1.5 mb-2 ...">
+            <span>{headerTitle}</span>
+            {isPinned && <button onClick={() => onTogglePinNodeBadge(targetNode.id)}><X ... /></button>}
+          </div>
+          <div className="text-slate-200 leading-relaxed font-sans" style={{ fontSize: `${bodyFontSize}px` }}>
+            {renderMarkdownFormatted(targetNode.infoBadge.content)}
+          </div>
+        </div>
+      ))}
+    </div>
+
+--------------------------------------------------------------------------------
+2. FILE: src/utils/latexRenderer.ts
+--------------------------------------------------------------------------------
+Fixes:
+- Fixed operator regex lookaheads with (?![a-zA-Z]) to prevent \top colliding with \to.
+- Enhanced subscript/superscript dictionary mapping for canvas fallbacks.
+- Corrected renderLatexToHtml to pass clean formula strings directly to KaTeX.
+
+Key Code Sections:
+* Regex Boundaries (Lines 75-120):
+  Updated replacements:
+    .replace(/\\top(?![a-zA-Z])/g, 'ᵀ')
+    .replace(/\\to(?![a-zA-Z])/g, '→')
+    .replace(/\\in(?![a-zA-Z])/g, '∈')
+    .replace(/\\pm(?![a-zA-Z])/g, '±')
+    .replace(/\\times(?![a-zA-Z])/g, '×')
+
+* KaTeX HTML Renderer (Lines 7-25):
+  export function renderLatexToHtml(formula: string, isDisplay = false): string {
+    try {
+      const cleanFormula = formula.trim();
+      if (!cleanFormula) return '';
+      return katex.renderToString(cleanFormula, {
+        displayMode: isDisplay,
+        throwOnError: false,
+        errorColor: '#f87171',
+      });
+    } catch (err) {
+      ...
+    }
+  }
+
+--------------------------------------------------------------------------------
+3. FILE: src/utils/badgeFormatter.ts
+--------------------------------------------------------------------------------
+Fixes:
+- Preserved seg.latex in tokenizeLine so that renderers have access to the raw LaTeX formula.
+
+Key Code Sections:
+* Tokenization (Lines 22-35):
+  export function tokenizeLine(line: string): BadgeSegment[] {
+    const richSegments = parseRichLine(line);
+    return richSegments.map((seg: RichSegment): BadgeSegment => {
+      if (seg.type === 'latex') {
+        return {
+          type: 'latex',
+          latex: seg.latex,
+          text: latexToCanvasGlyphs(seg.latex || ''),
+        };
+      }
+      ...
+    });
+  }
+
+--------------------------------------------------------------------------------
+4. FILE: src/components/InfoCardModal.tsx
+--------------------------------------------------------------------------------
+Fixes:
+- Updated renderMarkdownFormatted to pass seg.latex || seg.text to renderLatexToHtml.
+- Removed KaTeX formula snippet buttons from the editing toolbar header.
+- Enabled node size level modification in Assistant mode (Requirement 1).
+
+Key Code Sections:
+* Markdown & KaTeX rendering (Lines 280-305):
+  if (seg.type === 'latex') {
+    const rawLatex = seg.latex || seg.text || '';
+    return (
+      <span
+        key={segIdx}
+        className="inline-block px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
+        dangerouslySetInnerHTML={{ __html: renderLatexToHtml(rawLatex) }}
+      />
+    );
+  }
+
+* Clean Editing Toolbar (Lines 550-575):
+  Removed snippet buttons: $\mathbb{R}^n$, $\frac{1}{2}$, $\begin{pmatrix}...\end{pmatrix}$.
+  Preserved bold, colored squares, and $LaTeX$ help modal button.
+
+--------------------------------------------------------------------------------
+5. FILE: src/components/EdgeSettingsModal.tsx
+--------------------------------------------------------------------------------
+Fixes:
+- Updated renderMarkdownFormatted to pass seg.latex || seg.text to renderLatexToHtml.
+- Removed KaTeX snippet buttons from the edge card editing toolbar header.
+
+--------------------------------------------------------------------------------
+6. FILE: src/components/Toolbar.tsx
+--------------------------------------------------------------------------------
+Fixes:
+- Added Pause/Play button in top-right header for Student mode (Requirement 0).
+
+Key Code Sections:
+* Student Header Controls (Lines 270-285):
+  <button
+    onClick={() => onUpdateSettings({ physicsRunning: !settings.physicsRunning })}
+    className={`p-1.5 rounded-lg border text-xs transition ${
+      settings.physicsRunning
+        ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+        : 'bg-slate-800 border-slate-700 text-slate-400'
+    }`}
+    title={settings.physicsRunning ? 'Pause Physics' : 'Resume Physics'}
+  >
+    {settings.physicsRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+  </button>
+
+--------------------------------------------------------------------------------
+7. FILE: src/App.tsx
+--------------------------------------------------------------------------------
+Fixes:
+- In handleEnterLocalGraph, reset selectedNodeId to null so central node is not selected by default (Requirement 3).
+- In handleUpdateProperties, accepted customSizeLevel and updated node radius and size level for Assistant mode (Requirement 1).
+
+Key Code Sections:
+* Local Graph Entry (Lines 318-326 in web / Lines 430-438 in author):
+  const handleEnterLocalGraph = (nodeId: string, depth: 1 | 2) => {
+    setSelectedNodeId(null);
+    setLocalGraphState({
+      active: true,
+      rootNodeId: nodeId,
+      depth,
+    });
+    ...
+  };
+
+* Property Updates (Lines 440-465 in web / Lines 560-585 in author):
+  const handleUpdateProperties = (
+    nodeId: string,
+    labelEn: string,
+    labelCn: string,
+    color: string,
+    customSizeLevel?: number
+  ) => {
+    ...
+    const updatedNode = {
+      ...n,
+      labelEn: labelEn.trim(),
+      labelCn: labelCn.trim() || labelEn.trim(),
+      color: color || n.color,
+      customSizeLevel,
+      isCustomOrEdited: true,
+    };
+    ...
+  };
+
+--------------------------------------------------------------------------------
+8. FILE: src/utils/svgExporter.ts
+--------------------------------------------------------------------------------
+Fixes:
+- Updated LaTeX token handling to use seg.latex || seg.text for SVG export rendering.
+
+--------------------------------------------------------------------------------
+9. FILE: package.json
+--------------------------------------------------------------------------------
+Fixes:
+- Updated version number to 1.2.0.
+
+================================================================================
+END OF FILE
+================================================================================
