@@ -444,7 +444,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.restore();
       });
 
-      // 2. Draw Nodes (NO OUTLINES / CONTOURS around circles)
+      // 2. Draw Nodes (Volumetric 3D Spheres with Radial Gradient)
       nodes.forEach(node => {
         const isSelected = selectedNodeId === node.id;
         const isHovered = hoveredNode === node;
@@ -469,23 +469,35 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         ctx.save();
         const r = node.radius || 16;
-
         ctx.globalAlpha = isDimmed ? 0.18 : 1.0;
 
-        // Selection / Hover / Pinned Glow Effect
-        if (isSelected || isHovered || isPinned || isSolid) {
+        // Smooth glow halo
+        if (isSelected || isHovered || isPinned || isSolid || r > 24) {
+          const glowGrad = ctx.createRadialGradient(node.x, node.y, r * 0.6, node.x, node.y, r * 2.2);
+          glowGrad.addColorStop(0, (node.color || '#38bdf8') + (isSelected || isHovered || isPinned || isSolid ? '99' : '44'));
+          glowGrad.addColorStop(1, 'transparent');
+          ctx.fillStyle = glowGrad;
           ctx.beginPath();
-          ctx.arc(node.x, node.y, r + (isSelected ? 8 : 5), 0, Math.PI * 2);
-          ctx.fillStyle = isSelected
-            ? 'rgba(56, 189, 248, 0.35)'
-            : (isPinned ? 'rgba(16, 185, 129, 0.3)' : `${node.color}33`);
+          ctx.arc(node.x, node.y, r * 2.2, 0, Math.PI * 2);
           ctx.fill();
         }
 
-        // Solid Node Circle (strictly clean, no stroke contour)
+        // Volumetric 3D sphere with radial gradient (highlight spot at top-left)
+        const fillGrad = ctx.createRadialGradient(
+          node.x - r * 0.3,
+          node.y - r * 0.3,
+          r * 0.1,
+          node.x,
+          node.y,
+          r
+        );
+        fillGrad.addColorStop(0, '#ffffff');
+        fillGrad.addColorStop(0.35, node.color || '#38bdf8');
+        fillGrad.addColorStop(1, shadeColor(node.color || '#38bdf8', -30));
+
+        ctx.fillStyle = fillGrad;
         ctx.beginPath();
         ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = node.color || '#38bdf8';
         ctx.fill();
 
         // Assistant newly added node indicator
@@ -494,6 +506,22 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           ctx.arc(node.x + r * 0.7, node.y - r * 0.7, 4, 0, Math.PI * 2);
           ctx.fillStyle = '#fbbf24';
           ctx.fill();
+        }
+
+        // Info Badge indicator icon [i] / [✓]
+        if (node.infoBadge?.content) {
+          const badgeX = node.x + r * 0.75;
+          const badgeY = node.y - r * 0.75;
+          ctx.fillStyle = isPinned ? '#10b981' : '#3b82f6';
+          ctx.beginPath();
+          ctx.arc(badgeX, badgeY, 5.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 8px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(isPinned ? '✓' : 'i', badgeX, badgeY);
         }
 
         ctx.restore();
@@ -1292,3 +1320,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     </div>
   );
 };
+
+function shadeColor(color: string, percent: number): string {
+  let num = parseInt(color.replace('#', ''), 16);
+  if (isNaN(num)) return color;
+  const amt = Math.round(2.55 * percent);
+  const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+  const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00ff) + amt));
+  const B = Math.max(0, Math.min(255, (num & 0x0000ff) + amt));
+  return `#${(0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
+}
