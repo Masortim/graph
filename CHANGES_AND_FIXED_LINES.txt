@@ -1,161 +1,86 @@
 ================================================================================
-CHANGELOG & MODIFIED FILES SUMMARY - GITHUB GRAPH VERSION 2.00
-Version: v2.00
+CHANGELOG & MODIFIED FILES SUMMARY - GITHUB GRAPH VERSION 2.01
+Version: v2.01
 Date: 2026-09-29
-Release Target: GitHub_Graph_v2.00.zip (root folder: GitHub_Graph_v2.00/)
+Release Target: GitHub_Graph_v2.01.zip (root folder: GitHub_Graph_v2.01/)
 ================================================================================
 
-This document details all modified source files, new components, exact updated
-code sections, line locations, and descriptions of features and fixes implemented
-in GitHub Graph Version 2.00.
+This document details all modified source files, exact updated code sections,
+line locations, and descriptions of features and fixes implemented in
+GitHub Graph Version 2.01.
 
 --------------------------------------------------------------------------------
-OVERVIEW OF MAJOR ENHANCEMENTS IN v2.00:
+1. CRITICAL FIX IN v2.01: NODE DESIGN RESTORATION (REMOVAL OF CLOSED STROKE CONTOUR)
 --------------------------------------------------------------------------------
-1. Ported core v3.01 improvements:
-   - Floating right-hand panels (InfoCardModal & EdgeSettingsModal) without dark backdrops.
-   - High-fidelity KaTeX math typesetting for formulas and matrices.
-   - Clean UI and unified design language.
-2. Assistant Mode Search Bar:
-   - Positioned between "Assistant" badge and proposal action buttons.
-   - Identical in styling and real-time counter metrics to Student Mode.
-3. Proposal Management Updates:
-   - "Save Proposals" and "Load Proposals" transformed to compact, clean icon-only buttons with complete tooltips.
-   - "Save Proposals" directly triggers instant browser download of `proposal_diff.json` and updates LocalStorage (skipping intermediate confirmation dialog).
-4. Live Node Visual Preview in Inspector:
-   - Live canvas preview when adjusting node color or size level slider.
-   - Cancel button immediately restores original node color, size level, and radius.
-   - Explicit `key={selectedNode.id}` prevents state leakage across nodes.
-5. Edge Settings Panel & Canvas Rendering:
-   - Full support for dashed lines (`setLineDash([8, 5])`) and solid lines.
-   - Dynamic thickness slider from 1px to 9px with real-time canvas updates.
-   - Edited edge remains highlighted after clicking "Done" until the user moves the mouse.
-6. Fix Card Text Overwriting Bug:
-   - Completely resolved node card text leakage when switching between nodes or saving.
-7. Section Pinning & Custom Coordinates:
-   - Checkbox button directly to the left of the "Labels" button to toggle "Fix Sections".
-   - When active, ONLY section nodes (`type === 'section'`) are locked; chapters, subsections, and concepts move freely with physics.
-   - Reads default coordinates from `sectionCoordinates.txt` formatted as `English Title:Coordinate 1:Coordinate 2`.
-   - Section Coordinates Editor Modal (accessed via the coordinates button next to Save) allowing viewing, direct text editing, live generation from canvas layout, and instant saving.
-
-================================================================================
-EXACT FILE CHANGES & IMPLEMENTATION DETAILS:
-================================================================================
+* Bug:
+  In v2.00, an unwanted stroke outline (`ctx.stroke()` with `rgba(255, 255, 255, 0.45)`)
+  was inadvertently applied around every node circle, creating a closed border / contour.
+* Fix:
+  - Removed all hard stroke / border contours around standard nodes.
+  - Restored original volumetric 3D spherical rendering with radial gradient:
+      `fillGrad.addColorStop(0, '#ffffff');`
+      `fillGrad.addColorStop(0.35, node.color || '#38bdf8');`
+      `fillGrad.addColorStop(1, shadeColor(node.color || '#38bdf8', -30));`
+  - Restored smooth radial halo glow on selection, hover, and pinned states.
+  - Node design is now 100% identical to the original visual appearance without borders.
 
 --------------------------------------------------------------------------------
-1. FILE: src/utils/sectionCoordinates.ts (NEW FILE)
+2. FILE: src/components/GraphCanvas.tsx
 --------------------------------------------------------------------------------
-Lines 1-52:
-- Defined `SectionCoord` interface and `DEFAULT_SECTION_COORDINATES_TEXT`.
-- Implemented `parseSectionCoordinates(text: string)` to parse `Title:X:Y` format.
-- Implemented `applySectionCoordinates(nodes: GraphNode[], text: string): GraphNode[]` to pin section nodes at specific pixel coordinates.
-- Implemented `formatSectionCoordinates(nodes: GraphNode[]): string` to extract and serialize current section coordinates.
-
---------------------------------------------------------------------------------
-2. FILE: src/components/SectionCoordinatesModal.tsx (NEW FILE)
---------------------------------------------------------------------------------
-Lines 1-135:
-- Modal window for viewing, editing, generating, and saving `sectionCoordinates.txt`.
-- Provides "Generate from Canvas" button to serialize current section node layout.
-- Provides "Save Coordinates" button to immediately apply new coordinates across the graph.
-
---------------------------------------------------------------------------------
-3. FILE: src/components/Toolbar.tsx
---------------------------------------------------------------------------------
-- Lines 1-35: Added icon imports (`MapPin`, `CheckSquare`, `Square`, `Save`, `Upload`, etc.).
-- Lines 40-75: Updated `ToolbarProps` interface:
-    onDirectSaveProposals?: () => void;
-    nodes?: GraphNode[];
-    sectionCoordinatesText?: string;
-    onSaveSectionCoordinates?: (text: string) => void;
-- Lines 125-165: Center search bar rendered for both Student and Assistant modes with real-time match badges.
-- Lines 170-225: Assistant-only icon buttons group:
-    * Load Proposals button (Upload icon, amber).
-    * Direct Save Proposals button (Save icon, instant download).
-    * Section Coordinates Editor button (MapPin icon, emerald).
-- Lines 230-260: Fix Sections toggle checkbox button positioned directly left of Labels toggle:
-    <button onClick={() => onUpdateSettings({ fixSections: !settings.fixSections })}>
-      {settings.fixSections ? <CheckSquare /> : <Square />}
-    </button>
-- Lines 340-360: Mounted `SectionCoordinatesModal`.
-
---------------------------------------------------------------------------------
-4. FILE: src/components/InfoCardModal.tsx
---------------------------------------------------------------------------------
-- Lines 1-50: Cleaned unused imports and aligned `InfoCardModalProps`.
-- Lines 65-115: State synchronization & reset on node change:
-    useEffect(() => {
-      setIsEditingInfo(false);
-      setInfoContent(node.infoBadge?.content || '');
-      setIsEditingProperties(false);
-      setLabelEn(node.labelEn);
-      setLabelCn(node.labelCn || '');
-      setSelectedColor(node.color);
-      // Synchronize size and original properties reference
-    }, [node.id, ...]);
-- Lines 215-260: Live property previews & Cancel revert handlers:
-    handleColorChange -> onPreviewProperties(node.id, { color, customSizeLevel })
-    handleSizeLevelChange -> onPreviewProperties(node.id, { color, customSizeLevel })
-    handleCancelProperties -> Reverts canvas preview and local state to `originalPropertiesRef.current`.
-- Lines 310-440: Floating right-hand styling (`w-96`, `top-16`, `bottom-6`, `right-4`, backdrop-blur-md, no dark backdrop).
-
---------------------------------------------------------------------------------
-5. FILE: src/components/EdgeSettingsModal.tsx
---------------------------------------------------------------------------------
-- Lines 1-60: Floating right-hand design without screen-covering backdrop.
-- Lines 65-105: State synchronization on `edge.id` change:
-    useEffect(() => {
-      setThickness(edge.thickness || Math.min(9, Math.max(1, edge.weight || 2)));
-      setLineStyle((edge.style || edge.lineStyle) === 'dashed' ? 'dashed' : 'solid');
-      setColor(edge.color || '#94a3b8');
-      setInfoContent(cleanInitialContent);
-    }, [edge.id, ...]);
-- Lines 110-175: Immediate update handlers:
-    handleLineStyleChange -> onUpdateEdge(edge.id, { style, lineStyle })
-    handleThicknessChange -> onUpdateEdge(edge.id, { thickness, weight })
-    handleColorChange -> onUpdateEdge(edge.id, { color })
-- Lines 240-320: Style toggle (Solid vs Dashed), thickness slider (1-9), color palette, and KaTeX note editor.
-
---------------------------------------------------------------------------------
-6. FILE: src/components/GraphCanvas.tsx
---------------------------------------------------------------------------------
+- Lines 50-75: Added `shadeColor(color, percent)` utility for 3D sphere gradient lighting.
 - Lines 330-365: Section pinning logic in animation loop:
-    if (settings.fixSections) {
-      nodes.forEach(node => {
-        if (node.type === 'section') node.isFixed = true;
-        else if (!isDraggingNode.current || isDraggingNode.current.id !== node.id) node.isFixed = false;
-      });
-    }
+    When `settings.fixSections` is active, ONLY section nodes (`type === 'section'`)
+    are locked; chapters, subsections, and concepts move freely with physics.
 - Lines 420-475: Dashed and solid line styling on canvas:
-    if ((edge.lineStyle || edge.style) === 'dashed') {
-      ctx.setLineDash([8, 5]);
-    } else {
-      ctx.setLineDash([]);
-    }
-    const baseThickness = edge.thickness !== undefined ? edge.thickness : (edge.weight || 1.5);
-    ctx.lineWidth = (isHovered || isHighlighted ? baseThickness * 2 : baseThickness);
+    `if ((edge.lineStyle || edge.style) === 'dashed') ctx.setLineDash([8, 5]);`
+    Thickness support (1px to 9px).
+- Lines 520-575: Volumetric 3D sphere rendering without stroke contours.
 - Lines 880-920: Decoupled single click (opens inspector with 240ms debounce) from double click (pins badge).
-- Lines 930-945: Mouse movement clears persistent edge highlight:
-    if (persistedHighlightEdgeId && onClearPersistedHighlightEdge) {
-      onClearPersistedHighlightEdge();
-    }
+- Lines 930-945: Mouse movement clears persistent edge highlight.
 
 --------------------------------------------------------------------------------
-7. FILE: src/App.tsx
+3. FILE: src/utils/sectionCoordinates.ts
 --------------------------------------------------------------------------------
-- Lines 35-60: Initialized section coordinates and applied to initial node set.
-- Lines 110-140: Dynamic loading of `/sectionCoordinates.txt` at runtime.
-- Lines 285-300: Persistent edge highlight handling on modal close:
-    const handleCloseEdgeSettings = () => {
-      if (edgeSettingsTarget) setPersistedHighlightEdgeId(edgeSettingsTarget.id);
-      setEdgeSettingsTarget(null);
-    };
-- Lines 480-520: Direct proposal export without modal (`handleDirectSaveProposals`).
-- Lines 730-800: Bound `key={selectedNode.id}` to `InfoCardModal` and `key={edgeSettingsTarget.id}` to `EdgeSettingsModal`.
+- Defined `SectionCoord` interface and `DEFAULT_SECTION_COORDINATES_TEXT`.
+- Implemented `parseSectionCoordinates`, `applySectionCoordinates`, and `formatSectionCoordinates`.
+
+--------------------------------------------------------------------------------
+4. FILE: src/components/SectionCoordinatesModal.tsx
+--------------------------------------------------------------------------------
+- Modal window for viewing, editing, generating from canvas, and saving `sectionCoordinates.txt`.
+
+--------------------------------------------------------------------------------
+5. FILE: src/components/Toolbar.tsx
+--------------------------------------------------------------------------------
+- Assistant Mode search bar between "Assistant" badge and proposal actions.
+- Icon-only "Save Proposals" (instant download) and "Load Proposals" buttons.
+- Fix Sections checkbox toggle button (directly left of Labels button).
+- Section Coordinates Editor button (MapPin icon next to Save).
+
+--------------------------------------------------------------------------------
+6. FILE: src/components/InfoCardModal.tsx
+--------------------------------------------------------------------------------
+- Live node visual preview on canvas for color and size adjustments.
+- Cancel button immediately restores original color, size, and radius.
+- Resolved card text leakage across different nodes.
+
+--------------------------------------------------------------------------------
+7. FILE: src/components/EdgeSettingsModal.tsx
+--------------------------------------------------------------------------------
+- Floating right-hand panel without dark backdrop.
+- Full support for dashed lines and thickness slider (1-9 px).
+- Edited edge remains highlighted post-Done until mouse moves.
+
+--------------------------------------------------------------------------------
+8. FILE: src/App.tsx
+--------------------------------------------------------------------------------
+- Integrated Section coordinates loading and runtime updates.
+- Immediate proposal download on "Save Proposals" (`handleDirectSaveProposals`).
+- Bound `key={selectedNode.id}` to `InfoCardModal` and `key={edgeSettingsTarget.id}` to `EdgeSettingsModal`.
 
 ================================================================================
 VERIFICATION & BUILD CONFIRMATION:
 ================================================================================
-- `npm run build` executed successfully with 0 TypeScript and 0 Vite bundling errors.
-- Package verified and archived into `GitHub_Graph_v2.00.zip`.
+- `npm run build` executed successfully with 0 TypeScript and 0 Vite errors.
+- Package archived into `GitHub_Graph_v2.01.zip` containing `GitHub_Graph_v2.01/`.
 ================================================================================

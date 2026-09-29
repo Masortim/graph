@@ -53,6 +53,32 @@ interface BoundingBox {
   nodeId: string;
 }
 
+function shadeColor(color: string, percent: number): string {
+  let R = parseInt(color.substring(1, 3), 16);
+  let G = parseInt(color.substring(3, 5), 16);
+  let B = parseInt(color.substring(5, 7), 16);
+
+  if (isNaN(R) || isNaN(G) || isNaN(B)) return color;
+
+  R = Math.round((R * (100 + percent)) / 100);
+  G = Math.round((G * (100 + percent)) / 100);
+  B = Math.round((B * (100 + percent)) / 100);
+
+  R = R < 255 ? R : 255;
+  G = G < 255 ? G : 255;
+  B = B < 255 ? B : 255;
+
+  R = R > 0 ? R : 0;
+  G = G > 0 ? G : 0;
+  B = B > 0 ? B : 0;
+
+  const RR = R.toString(16).length === 1 ? '0' + R.toString(16) : R.toString(16);
+  const GG = G.toString(16).length === 1 ? '0' + G.toString(16) : G.toString(16);
+  const BB = B.toString(16).length === 1 ? '0' + B.toString(16) : B.toString(16);
+
+  return '#' + RR + GG + BB;
+}
+
 function distanceToLineSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
   const dx = x2 - x1;
   const dy = y2 - y1;
@@ -496,7 +522,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.restore();
       });
 
-      // 2. Draw Nodes (Volumetric 3D Spheres with Radial Gradient)
+      // 2. Draw Nodes (Volumetric 3D Spheres with Radial Gradient, NO closed contour / border)
       nodes.forEach(node => {
         const isSelected = selectedNodeId === node.id;
         const isHovered = hoveredNode === node;
@@ -521,45 +547,63 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         }
 
         const r = node.radius || 16;
-        const alpha = isDimmed ? (settings.dimmingOpacity || 0.15) : 1.0;
+        const alpha = isDimmed ? (settings.dimmingOpacity || 0.18) : 1.0;
 
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        // Halo Glow on Hover / Selection / Pinned
-        if ((isHovered || isSelected || isPinned || isSolid) && !isDimmed) {
-          ctx.save();
-          ctx.shadowColor = node.color || '#38bdf8';
-          ctx.shadowBlur = (isSelected ? 22 : 14) * (settings.haloGlowIntensity || 1.0);
+        // Smooth glow halo on selection / hover / pinned / solid
+        if (isSelected || isHovered || isPinned || isSolid || r > 24) {
+          const glowGrad = ctx.createRadialGradient(node.x, node.y, r * 0.6, node.x, node.y, r * 2.2);
+          glowGrad.addColorStop(0, (node.color || '#38bdf8') + (isSelected || isHovered || isPinned || isSolid ? '99' : '44'));
+          glowGrad.addColorStop(1, 'transparent');
+          ctx.fillStyle = glowGrad;
           ctx.beginPath();
-          ctx.arc(node.x, node.y, r + (isSelected ? 3 : 1.5), 0, Math.PI * 2);
-          ctx.fillStyle = node.color || '#38bdf8';
+          ctx.arc(node.x, node.y, r * 2.2, 0, Math.PI * 2);
           ctx.fill();
-          ctx.restore();
         }
 
-        // 3D Spherical Radial Gradient
-        const grad = ctx.createRadialGradient(
-          node.x - r * 0.35,
-          node.y - r * 0.35,
-          r * 0.08,
+        // Volumetric 3D sphere with radial gradient (highlight spot at top-left)
+        const fillGrad = ctx.createRadialGradient(
+          node.x - r * 0.3,
+          node.y - r * 0.3,
+          r * 0.1,
           node.x,
           node.y,
           r
         );
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.35, node.color || '#38bdf8');
-        grad.addColorStop(1, '#0a0d14');
+        fillGrad.addColorStop(0, '#ffffff');
+        fillGrad.addColorStop(0.35, node.color || '#38bdf8');
+        fillGrad.addColorStop(1, shadeColor(node.color || '#38bdf8', -30));
 
+        ctx.fillStyle = fillGrad;
         ctx.beginPath();
         ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
         ctx.fill();
 
-        // Node Border Outline
-        ctx.lineWidth = isSelected ? 2.5 : (isHovered || isPinned ? 2 : 1.2);
-        ctx.strokeStyle = isSelected ? '#ffffff' : (isPinned ? '#10b981' : 'rgba(255, 255, 255, 0.45)');
-        ctx.stroke();
+        // Assistant newly added node indicator
+        if (node.isAssistantProposal) {
+          ctx.beginPath();
+          ctx.arc(node.x + r * 0.7, node.y - r * 0.7, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#fbbf24';
+          ctx.fill();
+        }
+
+        // Info Badge indicator icon [i] / [✓]
+        if (node.infoBadge?.content) {
+          const badgeX = node.x + r * 0.75;
+          const badgeY = node.y - r * 0.75;
+          ctx.fillStyle = isPinned ? '#10b981' : '#3b82f6';
+          ctx.beginPath();
+          ctx.arc(badgeX, badgeY, 5.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 8px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(isPinned ? '✓' : 'i', badgeX, badgeY);
+        }
 
         ctx.restore();
       });
