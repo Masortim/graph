@@ -7,8 +7,16 @@ import type {
   AssistantProposal 
 } from './types/graph';
 import { downloadGraphAsSvg } from './utils/svgExporter';
-import { calculateNodeSizeLevel, sizeLevelToRadius } from './utils/nodeMetrics';
+import { 
+  calculateNodeSizeLevel, 
+  sizeLevelToRadius, 
+  countVaultKeyphraseOccurrences 
+} from './utils/nodeMetrics';
 import { generateAssistantProposal } from './utils/proposalManager';
+import { 
+  DEFAULT_SECTION_COORDINATES_TEXT, 
+  applySectionCoordinates 
+} from './utils/sectionCoordinates';
 import { GraphCanvas } from './components/GraphCanvas';
 import { InfoCardModal } from './components/InfoCardModal';
 import { AddEdgeModal } from './components/AddEdgeModal';
@@ -31,8 +39,14 @@ export function App() {
   // App Mode: 'student' (Default) or 'assistant'
   const [mode, setMode] = useState<AppMode>(() => detectModeFromUrl());
 
-  // Direct initialization from masterGraphData to ensure 100% instant rendering
-  const [nodes, setNodes] = useState<GraphNode[]>(() => (masterGraphData.nodes || []) as GraphNode[]);
+  // Section Coordinates State
+  const [sectionCoordinatesText, setSectionCoordinatesText] = useState<string>(DEFAULT_SECTION_COORDINATES_TEXT);
+
+  // Initialize nodes and edges
+  const [nodes, setNodes] = useState<GraphNode[]>(() => {
+    const rawNodes = (masterGraphData.nodes || []) as GraphNode[];
+    return applySectionCoordinates(rawNodes, DEFAULT_SECTION_COORDINATES_TEXT);
+  });
   const [edges, setEdges] = useState<GraphEdge[]>(() => (masterGraphData.edges || []) as GraphEdge[]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [vaultName, setVaultName] = useState<string>(masterGraphData.vaultName || 'Linear Algebra NSU');
@@ -50,6 +64,9 @@ export function App() {
 
   // Edge RMB Inspector State (Assistant mode)
   const [edgeSettingsTarget, setEdgeSettingsTarget] = useState<GraphEdge | null>(null);
+
+  // Persistent highlight on edge after editing until first mouse movement
+  const [persistedHighlightEdgeId, setPersistedHighlightEdgeId] = useState<string | null>(null);
 
   // Local Graph Mode & Modal State
   const [localGraphModalTarget, setLocalGraphModalTarget] = useState<GraphNode | null>(null);
@@ -72,13 +89,14 @@ export function App() {
   const [settings, setSettings] = useState<GraphSettings>({
     showCurvedEdges: true,
     edgeColor: '#94a3b8',
-    edgeThickness: 1.2,
-    edgeOpacity: 0.35,
+    edgeThickness: 1.5,
+    edgeOpacity: 0.65,
     edgeLength: 1.5,
     nodeSpacing: 30,
     nodeRepulsionMultiplier: 1.2,
     showLabels: true,
     physicsRunning: true,
+    fixSections: true, // Default to true so sections stay locked at coordinates
   });
 
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -105,6 +123,33 @@ export function App() {
     };
   }, []);
 
+  // Fetch sectionCoordinates.txt if available at runtime
+  useEffect(() => {
+    const loadSectionCoordinates = async () => {
+      const candidates = [
+        './sectionCoordinates.txt',
+        'sectionCoordinates.txt',
+        `${import.meta.env.BASE_URL}sectionCoordinates.txt`,
+      ];
+      for (const url of candidates) {
+        try {
+          const resp = await fetch(url);
+          if (resp.ok) {
+            const txt = await resp.text();
+            if (txt && txt.trim().length > 0) {
+              setSectionCoordinatesText(txt);
+              setNodes(prev => applySectionCoordinates(prev, txt));
+              break;
+            }
+          }
+        } catch {
+          // Continue to next candidate
+        }
+      }
+    };
+    loadSectionCoordinates();
+  }, []);
+
   const handleUpdateSettings = (newPartial: Partial<GraphSettings>) => {
     setSettings(prev => ({ ...prev, ...newPartial }));
   };
@@ -122,7 +167,7 @@ export function App() {
   const handleTogglePinNodeBadge = (nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node || node.infoBadge?.content === undefined || node.infoBadge.content === '') {
-      showToast('У этого узла нет информационной карточки.');
+      showToast(mode === 'assistant' ? 'This node has no note card attached.' : 'У этого узла нет информационной карточки.');
       return;
     }
 
@@ -130,10 +175,10 @@ export function App() {
       const next = new Set(prev);
       if (next.has(nodeId)) {
         next.delete(nodeId);
-        showToast(`Табличка «${node.labelEn}» скрыта`);
+        showToast(`Card «${node.labelEn}» unpinned`);
       } else {
         next.add(nodeId);
-        showToast(`Табличка «${node.labelEn}» закреплена на графе`);
+        showToast(`Card «${node.labelEn}» pinned on canvas`);
       }
       return next;
     });
@@ -143,7 +188,7 @@ export function App() {
   const handleTogglePinEdgeBadge = (edgeId: string) => {
     const edge = edges.find(e => e.id === edgeId);
     if (!edge || !edge.infoBadge?.content) {
-      showToast('У этой связи нет информационной карточки.');
+      showToast(mode === 'assistant' ? 'This edge has no note card attached.' : 'У этой связи нет информационной карточки.');
       return;
     }
 
@@ -151,10 +196,10 @@ export function App() {
       const next = new Set(prev);
       if (next.has(edgeId)) {
         next.delete(edgeId);
-        showToast('Табличка связи скрыта');
+        showToast('Edge card unpinned');
       } else {
         next.add(edgeId);
-        showToast('Табличка связи закреплена на графе');
+        showToast('Edge card pinned on canvas');
       }
       return next;
     });
@@ -203,9 +248,10 @@ export function App() {
           if (response.ok) {
             const data = await response.json();
             if (data && Array.isArray(data.nodes) && Array.isArray(data.edges) && data.nodes.length > 0) {
-              setNodes(data.nodes);
+              const nodesWithCoords = applySectionCoordinates(data.nodes, sectionCoordinatesText);
+              setNodes(nodesWithCoords);
               setEdges(data.edges);
-              setMasterNodes(data.nodes);
+              setMasterNodes(nodesWithCoords);
               setMasterEdges(data.edges);
               if (data.name) {
                 setVaultName(data.name.replace('Linear Algebra NSU - ', ''));
@@ -223,7 +269,7 @@ export function App() {
     };
 
     loadMasterGraph();
-  }, []);
+  }, [sectionCoordinatesText]);
 
   // Update edge styling & info badge (Assistant mode)
   const handleUpdateEdge = (
@@ -286,6 +332,13 @@ export function App() {
     });
   };
 
+  const handleCloseEdgeSettings = () => {
+    if (edgeSettingsTarget) {
+      setPersistedHighlightEdgeId(edgeSettingsTarget.id);
+    }
+    setEdgeSettingsTarget(null);
+  };
+
   // Local Graph Calculation
   const computeLocalGraphSubgraph = useCallback(
     (rootId: string, depth: 1 | 2) => {
@@ -323,7 +376,7 @@ export function App() {
       depth,
     });
     setLocalGraphPreviewHighlightNodeIds(null);
-    showToast(`Режим локального графа: глубина ${depth}`);
+    showToast(mode === 'assistant' ? `Local graph mode: depth ${depth}` : `Режим локального графа: глубина ${depth}`);
     setTimeout(() => {
       fitGraphFnRef.current?.();
     }, 100);
@@ -332,7 +385,7 @@ export function App() {
   const handleExitLocalGraph = () => {
     setLocalGraphState(null);
     setLocalGraphPreviewHighlightNodeIds(null);
-    showToast('Возврат к полному графу');
+    showToast(mode === 'assistant' ? 'Returned to full graph' : 'Возврат к полному графу');
     setTimeout(() => {
       fitGraphFnRef.current?.();
     }, 100);
@@ -418,7 +471,7 @@ export function App() {
         };
       })
     );
-    showToast('Информационная карточка сохранена');
+    showToast(mode === 'assistant' ? 'Information note card saved' : 'Информационная карточка сохранена');
   };
 
   // Update badge scale (100%..300%, step 25%)
@@ -434,15 +487,42 @@ export function App() {
         };
       })
     );
-    showToast(`Масштаб карточки: ${Math.round(scale * 100)}%`);
+    showToast(mode === 'assistant' ? `Card scale: ${Math.round(scale * 100)}%` : `Масштаб карточки: ${Math.round(scale * 100)}%`);
   };
 
-  // Update labels and color (Assistant Mode)
+  // Live visual preview of node color & size
+  const handlePreviewNodeProperties = (
+    nodeId: string,
+    updates: { color?: string; customSizeLevel?: number }
+  ) => {
+    setNodes(prev =>
+      prev.map(n => {
+        if (n.id !== nodeId) return n;
+        const newColor = updates.color !== undefined ? updates.color : n.color;
+        const newCustomSize = updates.customSizeLevel !== undefined ? updates.customSizeLevel : n.customSizeLevel;
+        const calculatedSize = newCustomSize !== undefined 
+          ? newCustomSize 
+          : calculateNodeSizeLevel({ ...n, customSizeLevel: newCustomSize }, n.connectedCount || 0, n.frequency || 0);
+        const radius = sizeLevelToRadius(calculatedSize);
+        return {
+          ...n,
+          color: newColor,
+          customSizeLevel: newCustomSize,
+          sizeLevel: calculatedSize,
+          radius,
+          baseRadius: radius,
+        };
+      })
+    );
+  };
+
+  // Update labels, color, and manual size of a node
   const handleUpdateProperties = (
     nodeId: string,
     labelEn: string,
     labelCn: string,
-    color: string
+    color: string,
+    customSizeLevel?: number
   ) => {
     setNodes(prev =>
       prev.map(n => {
@@ -452,6 +532,7 @@ export function App() {
           labelEn: labelEn.trim(),
           labelCn: labelCn.trim() || labelEn.trim(),
           color: color || n.color,
+          customSizeLevel,
           isCustomOrEdited: true,
         };
         const sizeLevel = calculateNodeSizeLevel(updatedNode, updatedNode.connectedCount || 0, updatedNode.frequency || 0);
@@ -464,7 +545,38 @@ export function App() {
         };
       })
     );
-    showToast('Свойства узла обновлены');
+    showToast(mode === 'assistant' ? 'Node properties updated' : 'Свойства узла обновлены');
+  };
+
+  // Recalculate frequency and size for a specific node
+  const handleUpdateNodeFrequencyAndSize = (nodeId: string) => {
+    const target = nodes.find(n => n.id === nodeId);
+    if (!target) return;
+
+    if (!target.keyPhrases || target.keyPhrases.length === 0) {
+      showToast(mode === 'assistant' ? 'Add key phrases to calculate occurrences.' : 'Добавьте ключевые фразы к узлу, чтобы рассчитать их частоту.');
+      return;
+    }
+
+    const freq = countVaultKeyphraseOccurrences(nodes, target.keyPhrases);
+    const conn = target.connectedCount || 0;
+    const sizeLevel = calculateNodeSizeLevel(target, conn, freq);
+    const radius = sizeLevelToRadius(sizeLevel);
+
+    setNodes(prev =>
+      prev.map(n => {
+        if (n.id !== nodeId) return n;
+        return {
+          ...n,
+          frequency: freq,
+          sizeLevel,
+          radius,
+          baseRadius: radius,
+          isCustomOrEdited: true,
+        };
+      })
+    );
+    showToast(mode === 'assistant' ? `Occurrences in vault: ${freq}` : `Частота во всем хранилище: ${freq}`);
   };
 
   // Update key phrases of a node
@@ -490,7 +602,7 @@ export function App() {
       e => (e.source === sourceId && e.target === targetId) || (e.source === targetId && e.target === sourceId)
     );
     if (edgeExists) {
-      showToast('Связь между этими узлами уже существует');
+      showToast(mode === 'assistant' ? 'Edge between these nodes already exists' : 'Связь между этими узлами уже существует');
       return;
     }
 
@@ -525,7 +637,7 @@ export function App() {
     setEdges(updatedEdges);
     setNodes(updatedNodes);
     setIsAddEdgeModalOpen(false);
-    showToast('Связь добавлена в правки');
+    showToast(mode === 'assistant' ? 'Edge added to proposal' : 'Связь добавлена в правки');
   };
 
   // Add edge to a newly created node (Assistant mode)
@@ -597,7 +709,7 @@ export function App() {
     setEdges(updatedEdges);
     setNodes(updatedNodes);
     setIsAddEdgeModalOpen(false);
-    showToast(`Создан узел «${labelEn}» (связан с «${sourceNode?.labelEn}»)`);
+    showToast(mode === 'assistant' ? `Created node «${labelEn}»` : `Создан узел «${labelEn}» (связан с «${sourceNode?.labelEn}»)`);
   };
 
   // Export Graph as High-Resolution Vector SVG (Watermarked with 110% © for both Student and Assistant)
@@ -611,7 +723,7 @@ export function App() {
       vaultName,
       true // ALWAYS Watermarked on Web
     );
-    showToast('Векторный SVG графа скачан (с защитным водяным знаком NSU)');
+    showToast(mode === 'assistant' ? 'Vector SVG downloaded (with NSU watermark)' : 'Векторный SVG графа скачан (с защитным водяным знаком NSU)');
   };
 
   // Assistant proposal changes count calculation
@@ -623,7 +735,38 @@ export function App() {
     return newNodes + newEdges;
   }, [nodes, edges, masterNodes, masterEdges]);
 
-  // Save Assistant Proposal: Prompts name, downloads file locally AND saves in Proposals storage
+  // Instant / Direct Save Proposals (skip modal dialog, download immediately)
+  const handleDirectSaveProposals = () => {
+    const proposal = generateAssistantProposal(
+      'Assistant',
+      masterNodes,
+      masterEdges,
+      nodes,
+      edges,
+      'Direct proposal export'
+    );
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `proposal_diff_${dateStr}.json`;
+
+    const jsonString = JSON.stringify(proposal, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    try {
+      localStorage.setItem(`proposal_${filename}`, jsonString);
+    } catch {
+      // Ignored if storage quota exceeded
+    }
+
+    showToast(mode === 'assistant' ? `Proposals saved and downloaded as «${filename}»!` : `Предложенные правки сохранены и скачаны как «${filename}»!`);
+  };
+
+  // Save Assistant Proposal with dialog
   const handleSaveAssistantProposal = (authorName: string, notes: string) => {
     const proposal = generateAssistantProposal(
       authorName,
@@ -668,7 +811,7 @@ export function App() {
         if (proposal && Array.isArray(proposal.snapshotNodes) && Array.isArray(proposal.snapshotEdges)) {
           setNodes(proposal.snapshotNodes);
           setEdges(proposal.snapshotEdges);
-          showToast(`Загружены сохранённые ранее правки помощника «${proposal.authorName}»`);
+          showToast(mode === 'assistant' ? `Loaded proposals from «${proposal.authorName || 'Assistant'}»` : `Загружены сохранённые ранее правки помощника «${proposal.authorName}»`);
         } else {
           alert('Некорректный формат файла предложения правок.');
         }
@@ -678,6 +821,13 @@ export function App() {
       }
     };
     reader.readAsText(file);
+  };
+
+  // Save Section Coordinates handler
+  const handleSaveSectionCoordinates = (newText: string) => {
+    setSectionCoordinatesText(newText);
+    setNodes(prev => applySectionCoordinates(prev, newText));
+    showToast(mode === 'assistant' ? 'Section coordinates saved and applied!' : 'Координаты секций сохранены и применены!');
   };
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId) || null;
@@ -706,12 +856,15 @@ export function App() {
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
         pinnedBadgesCount={pinnedBadgeNodeIds.size + pinnedBadgeEdgeIds.size}
-        fullscreenSearchQuery={fullscreenSearchQuery}
-        onFullscreenSearchChange={setFullscreenSearchQuery}
-        fullscreenMatchedNodesCount={fullscreenSearchData?.matchedNodesCount || 0}
-        fullscreenMatchedEdgesCount={fullscreenSearchData?.matchedEdgesCount || 0}
+        searchQuery={fullscreenSearchQuery}
+        onSearchChange={setFullscreenSearchQuery}
+        matchedNodesCount={fullscreenSearchData?.matchedNodesCount || 0}
+        matchedEdgesCount={fullscreenSearchData?.matchedEdgesCount || 0}
+        onDirectSaveProposals={handleDirectSaveProposals}
         onImportAssistantProposal={handleLoadAssistantProposal}
-        onOpenSaveProposalModal={() => setIsSaveProposalModalOpen(true)}
+        nodes={nodes}
+        sectionCoordinatesText={sectionCoordinatesText}
+        onSaveSectionCoordinates={handleSaveSectionCoordinates}
       />
 
       <main className="flex-1 relative w-full h-full overflow-hidden">
@@ -750,6 +903,8 @@ export function App() {
           }}
           triggerZoomInRef={triggerZoomInRef}
           triggerZoomOutRef={triggerZoomOutRef}
+          persistedHighlightEdgeId={persistedHighlightEdgeId}
+          onClearPersistedHighlightEdge={() => setPersistedHighlightEdgeId(null)}
         />
 
         {/* Local Graph Active Indicator Badge */}
@@ -771,6 +926,7 @@ export function App() {
         {/* Right Inspector Modal: Only open in Assistant mode when NOT in Fullscreen mode */}
         {selectedNode && !isFullscreen && mode === 'assistant' && (
           <InfoCardModal
+            key={selectedNode.id}
             mode={mode}
             node={selectedNode}
             nodes={nodes}
@@ -779,8 +935,9 @@ export function App() {
             onUpdateInfoBadge={handleUpdateInfoBadge}
             onUpdateBadgeScale={handleUpdateBadgeScale}
             onUpdateProperties={handleUpdateProperties}
+            onPreviewProperties={handlePreviewNodeProperties}
             onUpdateKeyPhrases={handleUpdateKeyPhrases}
-            onUpdateNodeFrequencyAndSize={() => {}}
+            onUpdateNodeFrequencyAndSize={handleUpdateNodeFrequencyAndSize}
             onOpenMergeModal={() => {}}
             onOpenAddEdgeModal={nodeId => {
               setAddEdgeSourceNodeId(nodeId);
@@ -795,10 +952,11 @@ export function App() {
         {/* Edge Settings Modal (Assistant mode) */}
         {edgeSettingsTarget && !isFullscreen && mode === 'assistant' && (
           <EdgeSettingsModal
+            key={edgeSettingsTarget.id}
             mode={mode}
             edge={edgeSettingsTarget}
             nodes={nodes}
-            onClose={() => setEdgeSettingsTarget(null)}
+            onClose={handleCloseEdgeSettings}
             onUpdateEdge={handleUpdateEdge}
             onDeleteEdge={() => {}}
           />

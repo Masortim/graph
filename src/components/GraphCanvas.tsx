@@ -39,6 +39,10 @@ interface GraphCanvasProps {
   setCanvasFocusFn?: (fn: (target: { nodeId?: string; edgeId?: string }) => void) => void;
   triggerZoomInRef?: React.MutableRefObject<(() => void) | null>;
   triggerZoomOutRef?: React.MutableRefObject<(() => void) | null>;
+
+  // Persistent Edge Highlight after editing
+  persistedHighlightEdgeId?: string | null;
+  onClearPersistedHighlightEdge?: () => void;
 }
 
 interface BoundingBox {
@@ -110,6 +114,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   setCanvasFocusFn,
   triggerZoomInRef,
   triggerZoomOutRef,
+  persistedHighlightEdgeId,
+  onClearPersistedHighlightEdge,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -118,7 +124,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const transformRef = useRef(transform);
   transformRef.current = transform;
 
-  const defaultEdgeColor = '#38bdf8';
+  const defaultEdgeColor = '#94a3b8';
 
   const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
@@ -126,7 +132,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     if (Math.abs(zoomLevel - transform.k) > 0.01) {
       setTransform(prev => ({ ...prev, k: zoomLevel }));
     }
-  }, [zoomLevel]);
+  }, [zoomLevel, transform.k]);
 
   const simRef = useRef<ForceAtlas2Simulation | null>(null);
   const requestRef = useRef<number | null>(null);
@@ -146,6 +152,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const lastMousePos = useRef({ x: 0, y: 0 });
   const hoveredNodeRef = useRef<GraphNode | null>(null);
   const hoveredEdgeRef = useRef<GraphEdge | null>(null);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
@@ -163,36 +170,51 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       simRef.current.setGraph(nodes, edges);
       simRef.current.params = { 
         ...simRef.current.params, 
-        edgeLengthMultiplier: settings.edgeLength,
-        nodeSpacingBuffer: settings.nodeSpacing,
-        nodeRepulsionMultiplier: settings.nodeRepulsionMultiplier,
+        edgeLengthMultiplier: settings.edgeLength || 1.5,
+        nodeSpacingBuffer: settings.nodeSpacing || 30,
+        nodeRepulsionMultiplier: settings.nodeRepulsionMultiplier || 1.2,
       };
     }
   }, [nodes, edges, settings.edgeLength, settings.nodeSpacing, settings.nodeRepulsionMultiplier]);
 
+  const screenToWorld = useCallback((screenX: number, screenY: number) => {
+    const { x, y, k } = transformRef.current;
+    return {
+      x: (screenX - x) / k,
+      y: (screenY - y) / k,
+    };
+  }, []);
+
+  const resetView = useCallback(() => {
+    setTransform({ x: 0, y: 0, k: 1 });
+    onZoomChange(1);
+  }, [onZoomChange]);
+
   const fitGraphToView = useCallback(() => {
-    if (!canvasRef.current || nodes.length === 0) return;
-    const canvas = canvasRef.current;
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
+    if (nodes.length === 0 || !canvasRef.current) return;
+    const padding = 80;
+    const width = canvasRef.current.clientWidth;
+    const height = canvasRef.current.clientHeight;
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     nodes.forEach(n => {
-      const r = n.radius || 16;
+      const r = n.radius || 20;
       if (n.x - r < minX) minX = n.x - r;
       if (n.x + r > maxX) maxX = n.x + r;
       if (n.y - r < minY) minY = n.y - r;
       if (n.y + r > maxY) maxY = n.y + r;
     });
 
-    const graphWidth = maxX - minX + 240;
-    const graphHeight = maxY - minY + 240;
+    const graphWidth = maxX - minX;
+    const graphHeight = maxY - minY;
+    if (graphWidth === 0 || graphHeight === 0) return;
+
+    const scaleX = (width - padding * 2) / graphWidth;
+    const scaleY = (height - padding * 2) / graphHeight;
+    const newK = Math.max(0.2, Math.min(1.8, Math.min(scaleX, scaleY)));
+
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
-
-    const scaleX = width / graphWidth;
-    const scaleY = height / graphHeight;
-    const newK = Math.max(0.18, Math.min(1.8, Math.min(scaleX, scaleY)));
 
     const newX = width / 2 - centerX * newK;
     const newY = height / 2 - centerY * newK;
@@ -201,35 +223,26 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     onZoomChange(newK);
   }, [nodes, onZoomChange]);
 
-  const resetView = useCallback(() => {
+  const zoomByFactor = useCallback((factor: number) => {
     if (!canvasRef.current) return;
     const width = canvasRef.current.clientWidth;
     const height = canvasRef.current.clientHeight;
-    setTransform({ x: width / 2, y: height / 2, k: 1 });
-    onZoomChange(1);
-  }, [onZoomChange]);
-
-  const zoomByFactor = useCallback((factor: number) => {
-    if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const cx = canvas.clientWidth / 2;
-    const cy = canvas.clientHeight / 2;
+    const cx = width / 2;
+    const cy = height / 2;
 
     setTransform(prev => {
-      const nextK = Math.max(0.1, Math.min(4.0, prev.k * factor));
-      const nextX = cx - (cx - prev.x) * (nextK / prev.k);
-      const nextY = cy - (cy - prev.y) * (nextK / prev.k);
-      onZoomChange(nextK);
-      return { x: nextX, y: nextY, k: nextK };
+      const newK = Math.max(0.1, Math.min(4.0, prev.k * factor));
+      const newX = cx - (cx - prev.x) * (newK / prev.k);
+      const newY = cy - (cy - prev.y) * (newK / prev.k);
+      onZoomChange(newK);
+      return { x: newX, y: newY, k: newK };
     });
   }, [onZoomChange]);
 
   const focusOnTarget = useCallback((target: { nodeId?: string; edgeId?: string }) => {
     if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    const currentK = transformRef.current.k;
+    const width = canvasRef.current.clientWidth;
+    const height = canvasRef.current.clientHeight;
 
     let targetX = 0;
     let targetY = 0;
@@ -257,7 +270,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     }
 
     if (found) {
-      const newK = Math.max(0.85, Math.min(2.0, currentK < 0.6 ? 1.0 : currentK));
+      const newK = 1.35;
       const newX = width / 2 - targetX * newK;
       const newY = height / 2 - targetY * newK;
       setTransform({ x: newX, y: newY, k: newK });
@@ -277,7 +290,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     const timer = setTimeout(() => {
       fitGraphToView();
     }, 200);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+      }
+    };
   }, []);
 
   function boxesOverlap(b1: BoundingBox, b2: BoundingBox): boolean {
@@ -296,11 +314,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     const render = () => {
       if (!active) return;
       const canvas = canvasRef.current;
-      if (!canvas) {
-        requestRef.current = requestAnimationFrame(render);
-        return;
-      }
-
+      if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
@@ -316,6 +330,27 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+      // Apply Fix Sections constraint: ONLY section nodes (type === 'section') are locked;
+      // chapters, subsections, and concepts move freely!
+      if (settings.fixSections) {
+        nodes.forEach(node => {
+          const isSectionOnly = node.type === 'section';
+          if (isSectionOnly) {
+            node.isFixed = true;
+          } else {
+            if (!isDraggingNode.current || isDraggingNode.current.id !== node.id) {
+              node.isFixed = false;
+            }
+          }
+        });
+      } else {
+        nodes.forEach(node => {
+          if (!isDraggingNode.current || isDraggingNode.current.id !== node.id) {
+            node.isFixed = false;
+          }
+        });
+      }
 
       // ForceAtlas2 Physics step
       if (settings.physicsRunning && simRef.current) {
@@ -356,35 +391,41 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       const neighborSet = new Set<string>();
       const highlightedEdgeSet = new Set<string>();
 
+      const isLocalGraphActive = !!structureHighlightNodeIds;
+
       if (focusedNode) {
         neighborSet.add(focusedNode.id);
         edges.forEach(e => {
           if (e.source === focusedNode.id) {
             neighborSet.add(e.target);
+            highlightedEdgeSet.add(e.id);
           } else if (e.target === focusedNode.id) {
             neighborSet.add(e.source);
-          }
-        });
-        // Requirement 2: Highlight both incident edges and edges between neighbor nodes
-        edges.forEach(e => {
-          if (neighborSet.has(e.source) && neighborSet.has(e.target)) {
             highlightedEdgeSet.add(e.id);
           }
         });
+
+        if (isLocalGraphActive) {
+          edges.forEach(e => {
+            if (neighborSet.has(e.source) && neighborSet.has(e.target)) {
+              highlightedEdgeSet.add(e.id);
+            }
+          });
+        }
       }
 
       const isStructureHighlighting = !!structureHighlightNodeIds;
       const isFullscreenSearching = !!fullscreenSearchHighlight;
 
-      // 1. Draw Edges
+      // 1. Draw Edges (with Dashed style, Thickness, Colors)
       edges.forEach(edge => {
         const src = nodeMap.get(edge.source);
         const tgt = nodeMap.get(edge.target);
         if (!src || !tgt) return;
 
-        const isHovered = hoveredEdge?.id === edge.id;
+        const isHovered = (hoveredEdge && hoveredEdge.id === edge.id) || (persistedHighlightEdgeId === edge.id);
         const isIncident = focusedNode ? (edge.source === focusedNode.id || edge.target === focusedNode.id) : false;
-        const isHighlighted = highlightedEdgeSet.has(edge.id);
+        const isHighlighted = highlightedEdgeSet.has(edge.id) || (persistedHighlightEdgeId === edge.id);
 
         let isDimmed = false;
         if (isFullscreenSearching && fullscreenSearchHighlight) {
@@ -397,10 +438,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           if (!isHighlighted && !isIncident) isDimmed = true;
         }
 
+        const baseThickness = edge.thickness !== undefined ? edge.thickness : (edge.weight !== undefined ? edge.weight : (settings.edgeThickness || 1.5));
+        const baseOpacity = settings.edgeOpacity !== undefined ? settings.edgeOpacity : 0.65;
+        const edgeColor = edge.color || settings.edgeColor || defaultEdgeColor;
+
         ctx.save();
-        ctx.strokeStyle = edge.color || defaultEdgeColor;
-        ctx.globalAlpha = isDimmed ? 0.12 : (isHighlighted || isHovered ? 1.0 : 0.65);
-        ctx.lineWidth = (isHovered || isHighlighted ? 2.8 : 1.4);
+        ctx.strokeStyle = edgeColor;
+        ctx.globalAlpha = isDimmed ? (settings.dimmingOpacity || 0.12) : (isHighlighted || isHovered ? 1.0 : baseOpacity);
+        ctx.lineWidth = (isHovered || isHighlighted ? baseThickness * 2 : baseThickness);
+
+        // Apply Solid vs Dashed style
+        if ((edge.lineStyle || edge.style) === 'dashed') {
+          ctx.setLineDash([8, 5]);
+        } else {
+          ctx.setLineDash([]);
+        }
 
         const dx = tgt.x - src.x;
         const dy = tgt.y - src.y;
@@ -462,84 +514,66 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           if (inStruct) isSolid = true;
           else isDimmed = true;
         } else if (focusedNode) {
+          const isSelf = node.id === focusedNode.id;
           const isNeighbor = neighborSet.has(node.id);
-          if (isNeighbor) isSolid = true;
+          if (isSelf || isNeighbor) isSolid = true;
           else isDimmed = true;
         }
 
-        ctx.save();
         const r = node.radius || 16;
-        ctx.globalAlpha = isDimmed ? 0.18 : 1.0;
+        const alpha = isDimmed ? (settings.dimmingOpacity || 0.15) : 1.0;
 
-        // Smooth glow halo
-        if (isSelected || isHovered || isPinned || isSolid || r > 24) {
-          const glowGrad = ctx.createRadialGradient(node.x, node.y, r * 0.6, node.x, node.y, r * 2.2);
-          glowGrad.addColorStop(0, (node.color || '#38bdf8') + (isSelected || isHovered || isPinned || isSolid ? '99' : '44'));
-          glowGrad.addColorStop(1, 'transparent');
-          ctx.fillStyle = glowGrad;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        // Halo Glow on Hover / Selection / Pinned
+        if ((isHovered || isSelected || isPinned || isSolid) && !isDimmed) {
+          ctx.save();
+          ctx.shadowColor = node.color || '#38bdf8';
+          ctx.shadowBlur = (isSelected ? 22 : 14) * (settings.haloGlowIntensity || 1.0);
           ctx.beginPath();
-          ctx.arc(node.x, node.y, r * 2.2, 0, Math.PI * 2);
+          ctx.arc(node.x, node.y, r + (isSelected ? 3 : 1.5), 0, Math.PI * 2);
+          ctx.fillStyle = node.color || '#38bdf8';
           ctx.fill();
+          ctx.restore();
         }
 
-        // Volumetric 3D sphere with radial gradient (highlight spot at top-left)
-        const fillGrad = ctx.createRadialGradient(
-          node.x - r * 0.3,
-          node.y - r * 0.3,
-          r * 0.1,
+        // 3D Spherical Radial Gradient
+        const grad = ctx.createRadialGradient(
+          node.x - r * 0.35,
+          node.y - r * 0.35,
+          r * 0.08,
           node.x,
           node.y,
           r
         );
-        fillGrad.addColorStop(0, '#ffffff');
-        fillGrad.addColorStop(0.35, node.color || '#38bdf8');
-        fillGrad.addColorStop(1, shadeColor(node.color || '#38bdf8', -30));
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.35, node.color || '#38bdf8');
+        grad.addColorStop(1, '#0a0d14');
 
-        ctx.fillStyle = fillGrad;
         ctx.beginPath();
         ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
         ctx.fill();
 
-        // Assistant newly added node indicator
-        if (node.isAssistantProposal) {
-          ctx.beginPath();
-          ctx.arc(node.x + r * 0.7, node.y - r * 0.7, 4, 0, Math.PI * 2);
-          ctx.fillStyle = '#fbbf24';
-          ctx.fill();
-        }
-
-        // Info Badge indicator icon [i] / [✓]
-        if (node.infoBadge?.content) {
-          const badgeX = node.x + r * 0.75;
-          const badgeY = node.y - r * 0.75;
-          ctx.fillStyle = isPinned ? '#10b981' : '#3b82f6';
-          ctx.beginPath();
-          ctx.arc(badgeX, badgeY, 5.5, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 8px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(isPinned ? '✓' : 'i', badgeX, badgeY);
-        }
+        // Node Border Outline
+        ctx.lineWidth = isSelected ? 2.5 : (isHovered || isPinned ? 2 : 1.2);
+        ctx.strokeStyle = isSelected ? '#ffffff' : (isPinned ? '#10b981' : 'rgba(255, 255, 255, 0.45)');
+        ctx.stroke();
 
         ctx.restore();
       });
 
-      // 3. Smart Bilingual Label Rendering
+      // 3. Collision-free Label Rendering
       if (settings.showLabels) {
         interface LabelCandidate {
           node: GraphNode;
           en: string;
           cn: string;
+          box: BoundingBox;
+          priority: number;
           fontSizeEn: number;
           fontSizeCn: number;
-          width: number;
-          height: number;
-          priority: number;
-          box: BoundingBox;
-          isDimmed: boolean;
         }
 
         const candidates: LabelCandidate[] = [];
@@ -548,109 +582,86 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const isSelected = selectedNodeId === node.id;
           const isHovered = hoveredNode === node;
           const isPinned = pinnedBadgeNodeIds.has(node.id);
-
-          let isDimmed = false;
-          if (isFullscreenSearching && fullscreenSearchHighlight) {
-            isDimmed = !fullscreenSearchHighlight.matchingNodeIds.has(node.id);
-          } else if (isStructureHighlighting && structureHighlightNodeIds) {
-            isDimmed = !structureHighlightNodeIds.has(node.id);
-          } else if (focusedNode) {
-            isDimmed = !neighborSet.has(node.id);
-          }
+          const inNeighbor = neighborSet.has(node.id);
 
           const r = node.radius || 16;
-          const baseFont = Math.max(10, Math.min(22, r * 0.52));
+          const baseFont = Math.max(10, Math.min(20, r * 0.52));
           const fontSizeEn = baseFont;
           const fontSizeCn = Math.max(9, baseFont * 0.85);
 
           const enText = node.labelEn || 'Untitled';
-          const cnText = node.labelCn || '';
+          const cnText = node.labelCn && node.labelCn !== enText ? node.labelCn : '';
 
           const textLengthMax = Math.max(enText.length * fontSizeEn * 0.58, cnText.length * fontSizeCn * 1.1);
           const boxWidth = textLengthMax + 8;
           const boxHeight = fontSizeEn + (cnText && cnText !== enText ? fontSizeCn + 4 : 0) + 4;
-          const boxX = node.x - boxWidth / 2;
-          const boxY = node.y + r + 3;
 
-          let priority = node.sizeLevel || 3;
-          if (isSelected) priority += 100;
-          if (isHovered) priority += 80;
-          if (isPinned) priority += 60;
-          if (focusedNode && neighborSet.has(node.id)) priority += 40;
+          let priority = 1;
+          if (isSelected) priority = 100;
+          else if (isHovered) priority = 90;
+          else if (isPinned) priority = 80;
+          else if (inNeighbor) priority = 70;
+          else priority = (node.weight || 5);
 
           candidates.push({
             node,
             en: enText,
             cn: cnText,
+            box: {
+              x: node.x - boxWidth / 2,
+              y: node.y + r + 3,
+              width: boxWidth,
+              height: boxHeight,
+              nodeId: node.id,
+            },
+            priority,
             fontSizeEn,
             fontSizeCn,
-            width: boxWidth,
-            height: boxHeight,
-            priority,
-            box: { x: boxX, y: boxY, width: boxWidth, height: boxHeight, nodeId: node.id },
-            isDimmed,
           });
         });
 
         candidates.sort((a, b) => b.priority - a.priority);
 
+        const acceptedLabels: LabelCandidate[] = [];
         const acceptedBoxes: BoundingBox[] = [];
-        const backgroundLabels: LabelCandidate[] = [];
-        const foregroundLabels: LabelCandidate[] = [];
 
         candidates.forEach(cand => {
-          let collides = false;
-          for (const placed of acceptedBoxes) {
-            if (boxesOverlap(cand.box, placed)) {
-              collides = true;
-              break;
+          let hasOverlap = false;
+          if (cand.priority < 70) {
+            for (const b of acceptedBoxes) {
+              if (boxesOverlap(cand.box, b)) {
+                hasOverlap = true;
+                break;
+              }
             }
           }
-
-          if (collides && !cand.isDimmed && cand.node.id !== selectedNodeId && cand.node.id !== hoveredNode?.id) {
-            backgroundLabels.push(cand);
-          } else {
+          if (!hasOverlap || cand.priority >= 70) {
+            acceptedLabels.push(cand);
             acceptedBoxes.push(cand.box);
-            foregroundLabels.push(cand);
           }
         });
 
-        // Layer 1: Collided Labels (Subtle Gray)
-        backgroundLabels.forEach(cand => {
+        // Draw Labels
+        acceptedLabels.forEach(cand => {
+          const isDimmed = focusedNode && !neighborSet.has(cand.node.id) && cand.node.id !== focusedNode.id;
           ctx.save();
+          ctx.globalAlpha = isDimmed ? (settings.dimmingOpacity || 0.15) : 1.0;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
 
-          ctx.fillStyle = 'rgba(148, 163, 184, 0.22)';
-          ctx.font = `${cand.fontSizeEn * 0.9}px sans-serif`;
-          ctx.fillText(cand.en, cand.node.x, cand.box.y);
-
-          if (cand.cn && cand.cn !== cand.en) {
-            ctx.font = `${cand.fontSizeCn * 0.85}px sans-serif`;
-            ctx.fillText(cand.cn, cand.node.x, cand.box.y + cand.fontSizeEn * 0.9 + 2);
-          }
-          ctx.restore();
-        });
-
-        // Layer 2: Foreground Labels
-        foregroundLabels.forEach(cand => {
-          ctx.save();
-          ctx.globalAlpha = cand.isDimmed ? 0.18 : 1.0;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 1;
-
-          ctx.fillStyle = cand.node.id === selectedNodeId || cand.node.id === hoveredNode?.id ? '#38bdf8' : '#f8fafc';
           ctx.font = `600 ${cand.fontSizeEn}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#050811';
+          ctx.strokeText(cand.en, cand.node.x, cand.box.y);
+          ctx.fillStyle = '#f8fafc';
           ctx.fillText(cand.en, cand.node.x, cand.box.y);
 
-          if (cand.cn && cand.cn !== cand.en) {
-            ctx.fillStyle = cand.node.id === selectedNodeId || cand.node.id === hoveredNode?.id ? '#93c5fd' : 'rgba(226, 232, 240, 0.85)';
-            ctx.font = `400 ${cand.fontSizeCn}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+          if (cand.cn) {
+            ctx.font = `${cand.fontSizeCn}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#050811';
+            ctx.strokeText(cand.cn, cand.node.x, cand.box.y + cand.fontSizeEn + 2);
+            ctx.fillStyle = '#93c5fd';
             ctx.fillText(cand.cn, cand.node.x, cand.box.y + cand.fontSizeEn + 2);
           }
 
@@ -658,7 +669,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         });
       }
 
-      // 4. Draw Dashed Connector Lines for Node Cards & Update Real-Time DOM Position
+      // 4. Update Real-Time DOM Position of Node Badges
       const activeNodeIdsSet = new Set<string>();
       pinnedBadgeNodeIds.forEach(id => activeNodeIdsSet.add(id));
       if (hoveredNodeRef.current?.id) activeNodeIdsSet.add(hoveredNodeRef.current.id);
@@ -695,7 +706,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         }
       });
 
-      // 5. Draw Dashed Connector Lines for Edge Cards & Update Real-Time DOM Position
+      // 5. Update Real-Time DOM Position of Edge Badges
       const activeEdgeIdsSet = new Set<string>();
       pinnedBadgeEdgeIds.forEach(id => activeEdgeIdsSet.add(id));
       if (hoveredEdgeRef.current?.id) activeEdgeIdsSet.add(hoveredEdgeRef.current.id);
@@ -708,11 +719,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const tgt = nodeMap.get(targetEdge.target);
         if (!src || !tgt) return;
 
-        const edgeColor = targetEdge.color || defaultEdgeColor;
-        const scaleMul = targetEdge.badgeScale !== undefined
-          ? targetEdge.badgeScale
-          : (targetEdge.infoBadge?.scale !== undefined ? targetEdge.infoBadge.scale : 1.0);
-
+        const edgeColor = targetEdge.color || '#38bdf8';
+        const scaleMul = targetEdge.badgeScale || targetEdge.infoBadge?.scale || 1.0;
         const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
         const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
         const headerFontSize = baseHeaderSize * scaleMul;
@@ -770,29 +778,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   }, [
     nodes,
     edges,
+    nodeMap,
     selectedNodeId,
     settings,
-    isFullscreen,
     pinnedBadgeNodeIds,
     pinnedBadgeEdgeIds,
     structureHighlightNodeIds,
     fullscreenSearchHighlight,
-    nodeMap,
+    persistedHighlightEdgeId,
     defaultEdgeColor,
   ]);
-
-  const screenToWorld = useCallback((screenX: number, screenY: number) => {
-    const { x, y, k } = transformRef.current;
-    return {
-      x: (screenX - x) / k,
-      y: (screenY - y) / k,
-    };
-  }, []);
 
   const getNodeAtPosition = useCallback((worldX: number, worldY: number): GraphNode | null => {
     for (let i = nodes.length - 1; i >= 0; i--) {
       const node = nodes[i];
-      const r = (node.radius || 16) + 4;
+      const r = (node.radius || 16) + 3;
       const dx = worldX - node.x;
       const dy = worldY - node.y;
       if (dx * dx + dy * dy <= r * r) {
@@ -810,12 +810,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       if (!src || !tgt) continue;
 
       let dist = Infinity;
-      if (settings.showCurvedEdges) {
-        const curvatureFactor = edge.curvature || 0.18;
+      const dx = tgt.x - src.x;
+      const dy = tgt.y - src.y;
+      const curvatureFactor = edge.curvature || 0.18;
+
+      if (settings.showCurvedEdges && Math.abs(curvatureFactor) > 0.01) {
         const mx = (src.x + tgt.x) / 2;
         const my = (src.y + tgt.y) / 2;
-        const dx = tgt.x - src.x;
-        const dy = tgt.y - src.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         const nx = -dy / d;
         const ny = dx / d;
@@ -832,9 +833,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     }
     return null;
-  }, [nodes, edges, nodeMap, settings.showCurvedEdges]);
+  }, [edges, nodeMap, settings.showCurvedEdges]);
 
-  // Mouse Down handling - RMB dragging ALWAYS pans without interfering with edges/nodes
+  // Mouse Down
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -875,14 +876,19 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   };
 
   // Double Click Handler (LMB): Pins Node or Edge info badge on canvas
+  // Decoupled from node inspector menu
   const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const clientX = e.clientX - rect.left;
     const clientY = e.clientY - rect.top;
     const worldPos = screenToWorld(clientX, clientY);
 
-    // Double click on node
     const hitNode = getNodeAtPosition(worldPos.x, worldPos.y);
     if (hitNode) {
       e.preventDefault();
@@ -890,7 +896,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       return;
     }
 
-    // Double click on edge
     const hitEdge = getEdgeAtPosition(worldPos.x, worldPos.y);
     if (hitEdge) {
       e.preventDefault();
@@ -900,6 +905,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Clear persisted highlight on first mouse movement
+    if (persistedHighlightEdgeId && onClearPersistedHighlightEdge) {
+      onClearPersistedHighlightEdge();
+    }
+
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const clientX = e.clientX - rect.left;
@@ -910,7 +920,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
     const worldPos = screenToWorld(clientX, clientY);
 
-    // RMB Dragging (always pans canvas smoothly, never blocked by edge or node)
     if (isDraggingRMB.current) {
       if (rmbStartPos.current) {
         const movedDist = Math.hypot(clientX - rmbStartPos.current.x, clientY - rmbStartPos.current.y);
@@ -961,19 +970,15 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     setHoveredEdgeId(null);
   };
 
-  // Mouse Up handling for RMB click vs double RMB click vs dragging
+  // Mouse Up
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (e.button === 2) {
       isDraggingRMB.current = false;
 
-      // If RMB was moved (dragged), user intended to pan -> do not trigger click actions!
       if (!hasRmbMoved.current) {
-        // 1. Single RMB click on node -> Local Graph Confirmation
         if (rmbHitNode.current) {
           onOpenLocalGraph?.(rmbHitNode.current);
-        }
-        // 2. Double RMB click on edge (Only when NOT in Fullscreen mode)
-        else if (rmbHitEdge.current && !isFullscreen) {
+        } else if (rmbHitEdge.current && !isFullscreen) {
           const now = Date.now();
           const last = lastRmbEdgeClickTime.current;
           if (last && last.edgeId === rmbHitEdge.current.id && now - last.time < 380) {
@@ -992,13 +997,27 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
     if (e.button === 0) {
       if (isDraggingNode.current) {
-        isDraggingNode.current.isFixed = false;
+        const dragged = isDraggingNode.current;
+        const isSectionOnly = dragged.type === 'section';
+        dragged.isFixed = settings.fixSections ? isSectionOnly : false;
         isDraggingNode.current = null;
       }
       if (!hasLmbMoved.current) {
-        if (lmbHitNode.current) {
-          onSelectNode(lmbHitNode.current);
+        const clickedNode = lmbHitNode.current;
+        if (clickedNode) {
+          if (clickTimerRef.current) {
+            clearTimeout(clickTimerRef.current);
+            clickTimerRef.current = null;
+          }
+          clickTimerRef.current = setTimeout(() => {
+            onSelectNode(clickedNode);
+            clickTimerRef.current = null;
+          }, 240);
         } else {
+          if (clickTimerRef.current) {
+            clearTimeout(clickTimerRef.current);
+            clickTimerRef.current = null;
+          }
           onSelectNode(null);
         }
       }
@@ -1032,20 +1051,28 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   };
 
   // Helper to render Markdown + KaTeX formatted content
-  const renderMarkdownFormatted = (raw: string) => {
+  const renderMarkdownFormatted = (raw: string, bodyFontSize = 16.5, lineHeight = 24) => {
     if (!raw) return null;
     const rawLines = raw.split(/\r?\n/);
     return rawLines.map((line, lineIdx) => {
       if (!line) {
-        return <div key={lineIdx} className="h-2.5" />;
+        return <div key={lineIdx} style={{ height: `${bodyFontSize * 0.75}px` }} />;
       }
       const segments = tokenizeLine(line);
       return (
-        <div key={lineIdx} className="min-h-[1.25em] my-0.5 leading-relaxed flex items-center flex-wrap gap-x-1">
+        <div
+          key={lineIdx}
+          className="my-0.5 leading-relaxed flex items-center flex-wrap gap-x-1.5"
+          style={{ minHeight: `${bodyFontSize * 1.3}px`, lineHeight: `${lineHeight}px` }}
+        >
           {segments.map((seg, segIdx) => {
             if (seg.type === 'bold') {
               return (
-                <strong key={segIdx} className="font-bold text-white">
+                <strong
+                  key={segIdx}
+                  className="font-bold text-white"
+                  style={{ fontSize: `${bodyFontSize}px` }}
+                >
                   {seg.text}
                 </strong>
               );
@@ -1057,8 +1084,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                   className="inline-block rounded-[3px] shadow-sm shrink-0 mx-0.5 align-middle"
                   style={{
                     backgroundColor: seg.squareColor || BADGE_SQUARE_COLORS.yellow,
-                    width: '1.1em',
-                    height: '1.1em',
+                    width: `${1.15 * bodyFontSize}px`,
+                    height: `${1.15 * bodyFontSize}px`,
                   }}
                 />
               );
@@ -1068,13 +1095,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               return (
                 <span
                   key={segIdx}
-                  className="inline-block px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
+                  className="inline-block px-1.5 py-0.5 rounded bg-slate-900/90 text-sky-200 font-serif shadow-sm align-middle"
+                  style={{ fontSize: `${bodyFontSize * 0.95}px` }}
                   dangerouslySetInnerHTML={{ __html: renderLatexToHtml(rawLatex) }}
                 />
               );
             }
             return (
-              <span key={segIdx} className="text-slate-200">
+              <span key={segIdx} className="text-slate-300" style={{ fontSize: `${bodyFontSize}px` }}>
                 {seg.text}
               </span>
             );
@@ -1084,35 +1112,33 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     });
   };
 
-  // Active Pinned / Hovered Node cards
   const activeNodeCards = useMemo(() => {
     const list: GraphNode[] = [];
     const seen = new Set<string>();
     pinnedBadgeNodeIds.forEach(id => {
-      const n = nodes.find(node => node.id === id);
+      const n = nodeMap.get(id);
       if (n && n.infoBadge?.content) {
         list.push(n);
-        seen.add(n.id);
+        seen.add(id);
       }
     });
     if (hoveredNodeId && !seen.has(hoveredNodeId)) {
-      const hn = nodes.find(n => n.id === hoveredNodeId);
+      const hn = nodeMap.get(hoveredNodeId);
       if (hn && hn.infoBadge?.content) {
         list.push(hn);
       }
     }
     return list;
-  }, [nodes, pinnedBadgeNodeIds, hoveredNodeId]);
+  }, [nodeMap, pinnedBadgeNodeIds, hoveredNodeId]);
 
-  // Active Pinned / Hovered Edge cards
   const activeEdgeCards = useMemo(() => {
     const list: GraphEdge[] = [];
     const seen = new Set<string>();
     pinnedBadgeEdgeIds.forEach(id => {
-      const e = edges.find(edge => edge.id === id);
+      const e = edges.find(ed => ed.id === id);
       if (e && e.infoBadge?.content) {
         list.push(e);
-        seen.add(e.id);
+        seen.add(id);
       }
     });
     if (hoveredEdgeId && !seen.has(hoveredEdgeId)) {
@@ -1156,61 +1182,49 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const headerFontSize = baseHeaderSize * scaleMul;
           const bodyFontSize = baseBodySize * scaleMul;
           const cardPadding = basePad * scaleMul;
-          const headerTitle = `${targetNode.labelEn}${targetNode.labelCn && targetNode.labelCn !== targetNode.labelEn ? ` | ${targetNode.labelCn}` : ''}`;
           const isPinned = pinnedBadgeNodeIds.has(targetNode.id);
 
-          const nodeRadius = targetNode.radius || 16;
-          const cardX = targetNode.x + nodeRadius + 16;
-          const cardY = targetNode.y - 20;
-          const screenX = cardX * transform.k + transform.x;
-          const screenY = cardY * transform.k + transform.y;
+          const headerTitle = `${targetNode.labelEn}${targetNode.labelCn && targetNode.labelCn !== targetNode.labelEn ? ` | ${targetNode.labelCn}` : ''}`;
 
           return (
             <div
               key={targetNode.id}
               id={`info-card-overlay-node-${targetNode.id}`}
-              className="pointer-events-auto absolute top-0 left-0 rounded-lg shadow-2xl transition-shadow select-text"
+              className="absolute left-0 top-0 pointer-events-auto rounded-xl shadow-2xl transition-shadow duration-150 backdrop-blur-md"
               style={{
-                transform: `translate3d(${screenX}px, ${screenY}px, 0) scale(${transform.k})`,
-                transformOrigin: 'top left',
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                border: `${1.8 * scaleMul}px solid ${targetNode.color}`,
+                width: `${340 * scaleMul}px`,
+                maxWidth: `${420 * scaleMul}px`,
+                backgroundColor: 'rgba(10, 15, 29, 0.94)',
+                border: `1.5px solid ${targetNode.color || '#38bdf8'}`,
                 padding: `${cardPadding}px`,
-                maxWidth: `${Math.max(280, 380 * scaleMul)}px`,
-                minWidth: `${Math.max(160, 200 * scaleMul)}px`,
-                zIndex: isPinned ? 20 : 30,
+                transformOrigin: 'top left',
+                boxShadow: `0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px -3px ${targetNode.color}33`,
               }}
             >
-              {/* Header Title */}
-              <div
-                className="font-bold border-b pb-1.5 mb-2 flex items-center justify-between gap-2"
-                style={{
-                  color: targetNode.color,
-                  fontSize: `${headerFontSize}px`,
-                  borderColor: `${targetNode.color}44`,
-                }}
-              >
-                <span className="truncate">{headerTitle}</span>
+              <div className="flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800">
+                <div
+                  className="font-bold tracking-wide select-text leading-tight flex-1"
+                  style={{
+                    fontSize: `${headerFontSize}px`,
+                    color: targetNode.color || '#38bdf8',
+                  }}
+                >
+                  {headerTitle}
+                </div>
                 {isPinned && (
                   <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      onTogglePinNodeBadge(targetNode.id);
-                    }}
-                    title="Close / Unpin"
-                    className="opacity-70 hover:opacity-100 text-slate-300 hover:text-white transition p-0.5 rounded hover:bg-slate-800"
+                    type="button"
+                    onClick={() => onTogglePinNodeBadge(targetNode.id)}
+                    className="text-slate-400 hover:text-white p-0.5 rounded transition hover:bg-slate-800"
+                    title="Открепить карточку"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              {/* Body KaTeX Div Block */}
-              <div
-                className="text-slate-200 leading-relaxed font-sans"
-                style={{ fontSize: `${bodyFontSize}px` }}
-              >
-                {renderMarkdownFormatted(badgeRawContent)}
+              <div className="text-slate-200 select-text overflow-hidden">
+                {renderMarkdownFormatted(badgeRawContent, bodyFontSize, Math.round(bodyFontSize * 1.45))}
               </div>
             </div>
           );
@@ -1220,14 +1234,17 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const badgeRawContent = targetEdge.infoBadge?.content;
           if (!badgeRawContent) return null;
 
-          const src = nodeMap.get(targetEdge.source);
-          const tgt = nodeMap.get(targetEdge.target);
-          if (!src || !tgt) return null;
+          const firstNode = nodeMap.get(targetEdge.source);
+          const secondNode = nodeMap.get(targetEdge.target);
+          if (!firstNode || !secondNode) return null;
 
-          const scaleMul = targetEdge.badgeScale !== undefined
-            ? targetEdge.badgeScale
-            : (targetEdge.infoBadge?.scale !== undefined ? targetEdge.infoBadge.scale : 1.0);
+          const edgeLang = targetEdge.badgeLanguage || 'cn';
+          const label1 = edgeLang === 'en' ? firstNode.labelEn : (firstNode.labelCn || firstNode.labelEn);
+          const label2 = edgeLang === 'en' ? secondNode.labelEn : (secondNode.labelCn || secondNode.labelEn);
+          const headerTitle = `${label1} ↔ ${label2}`;
 
+          const edgeColor = targetEdge.color || '#38bdf8';
+          const scaleMul = targetEdge.badgeScale || targetEdge.infoBadge?.scale || 1.0;
           const baseHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
           const baseBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
           const basePad = defaultGraphConfig?.cardStyles?.cardPadding || 16;
@@ -1235,83 +1252,47 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const headerFontSize = baseHeaderSize * scaleMul;
           const bodyFontSize = baseBodySize * scaleMul;
           const cardPadding = basePad * scaleMul;
-
-          const edgeColor = targetEdge.color || defaultEdgeColor;
-          const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;
-          const secondNode = firstNode === src ? tgt : src;
-          const edgeLang = targetEdge.badgeLanguage || 'cn';
-          const label1 = edgeLang === 'en' ? firstNode.labelEn : (firstNode.labelCn || firstNode.labelEn);
-          const label2 = edgeLang === 'en' ? secondNode.labelEn : (secondNode.labelCn || secondNode.labelEn);
-          const headerTitle = `${label1} ↔ ${label2}`;
           const isPinned = pinnedBadgeEdgeIds.has(targetEdge.id);
-
-          let midPt = { x: (src.x + tgt.x) / 2, y: (src.y + tgt.y) / 2 };
-          const dx = tgt.x - src.x;
-          const dy = tgt.y - src.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (settings.showCurvedEdges && dist > 1) {
-            const curvatureFactor = targetEdge.curvature || 0.18;
-            const mx = (src.x + tgt.x) / 2;
-            const my = (src.y + tgt.y) / 2;
-            const nx = -dy / dist;
-            const ny = dx / dist;
-            const offsetDist = dist * curvatureFactor;
-            const cx = mx + nx * offsetDist;
-            const cy = my + ny * offsetDist;
-            midPt = getBezierMidPoint(src.x, src.y, cx, cy, tgt.x, tgt.y);
-          }
-
-          const cardX = midPt.x + 12;
-          const cardY = midPt.y - 12;
-          const screenX = cardX * transform.k + transform.x;
-          const screenY = cardY * transform.k + transform.y;
 
           return (
             <div
               key={targetEdge.id}
               id={`info-card-overlay-edge-${targetEdge.id}`}
-              className="pointer-events-auto absolute top-0 left-0 rounded-lg shadow-2xl transition-shadow select-text"
+              className="absolute left-0 top-0 pointer-events-auto rounded-xl shadow-2xl transition-shadow duration-150 backdrop-blur-md"
               style={{
-                transform: `translate3d(${screenX}px, ${screenY}px, 0) scale(${transform.k})`,
-                transformOrigin: 'top left',
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                border: `${1.8 * scaleMul}px solid ${edgeColor}`,
+                width: `${340 * scaleMul}px`,
+                maxWidth: `${420 * scaleMul}px`,
+                backgroundColor: 'rgba(10, 15, 29, 0.94)',
+                border: `1.5px solid ${edgeColor}`,
                 padding: `${cardPadding}px`,
-                maxWidth: `${Math.max(280, 380 * scaleMul)}px`,
-                minWidth: `${Math.max(160, 200 * scaleMul)}px`,
-                zIndex: isPinned ? 20 : 30,
+                transformOrigin: 'top left',
+                boxShadow: `0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px -3px ${edgeColor}33`,
               }}
             >
-              {/* Header Title */}
-              <div
-                className="font-bold border-b pb-1.5 mb-2 flex items-center justify-between gap-2"
-                style={{
-                  color: edgeColor,
-                  fontSize: `${headerFontSize}px`,
-                  borderColor: `${edgeColor}44`,
-                }}
-              >
-                <span className="truncate">{headerTitle}</span>
+              <div className="flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800">
+                <div
+                  className="font-bold tracking-wide select-text leading-tight flex-1"
+                  style={{
+                    fontSize: `${headerFontSize}px`,
+                    color: edgeColor,
+                  }}
+                >
+                  {headerTitle}
+                </div>
                 {isPinned && (
                   <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      onTogglePinEdgeBadge(targetEdge.id);
-                    }}
-                    title="Close / Unpin"
-                    className="opacity-70 hover:opacity-100 text-slate-300 hover:text-white transition p-0.5 rounded hover:bg-slate-800"
+                    type="button"
+                    onClick={() => onTogglePinEdgeBadge(targetEdge.id)}
+                    className="text-slate-400 hover:text-white p-0.5 rounded transition hover:bg-slate-800"
+                    title="Открепить карточку"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              {/* Body KaTeX Div Block */}
-              <div
-                className="text-slate-200 leading-relaxed font-sans"
-                style={{ fontSize: `${bodyFontSize}px` }}
-              >
-                {renderMarkdownFormatted(badgeRawContent)}
+              <div className="text-slate-200 select-text overflow-hidden">
+                {renderMarkdownFormatted(badgeRawContent, bodyFontSize, Math.round(bodyFontSize * 1.45))}
               </div>
             </div>
           );
@@ -1320,13 +1301,3 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     </div>
   );
 };
-
-function shadeColor(color: string, percent: number): string {
-  let num = parseInt(color.replace('#', ''), 16);
-  if (isNaN(num)) return color;
-  const amt = Math.round(2.55 * percent);
-  const R = Math.max(0, Math.min(255, (num >> 16) + amt));
-  const G = Math.max(0, Math.min(255, ((num >> 8) & 0x00ff) + amt));
-  const B = Math.max(0, Math.min(255, (num & 0x0000ff) + amt));
-  return `#${(0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
-}

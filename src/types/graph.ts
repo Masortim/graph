@@ -122,6 +122,11 @@ export interface GraphSettings {
   // General settings
   showLabels: boolean;
   physicsRunning: boolean;
+
+  // Additional visual & physics controls
+  fixSections?: boolean;
+  dimmingOpacity?: number;
+  haloGlowIntensity?: number;
 }
 
 export interface ProjectState {

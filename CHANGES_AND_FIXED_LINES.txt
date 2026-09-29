@@ -1,272 +1,161 @@
 ================================================================================
-CHANGELOG & MODIFIED FILES SUMMARY - GITHUB LINEAR ALGEBRA WEB V1.2.0
-Version: 1.2.0
-Date: 2026-09-28
+CHANGELOG & MODIFIED FILES SUMMARY - GITHUB GRAPH VERSION 2.00
+Version: v2.00
+Date: 2026-09-29
+Release Target: GitHub_Graph_v2.00.zip (root folder: GitHub_Graph_v2.00/)
 ================================================================================
 
-This document details all modified source files, exact updated code sections,
-line locations, and explanations of fixes applied in version 1.2.0.
+This document details all modified source files, new components, exact updated
+code sections, line locations, and descriptions of features and fixes implemented
+in GitHub Graph Version 2.00.
 
 --------------------------------------------------------------------------------
-1. FILE: src/components/GraphCanvas.tsx
+OVERVIEW OF MAJOR ENHANCEMENTS IN v2.00:
 --------------------------------------------------------------------------------
-Fixes / Enhancements:
-- Restored 3D volumetric spherical radial gradient for nodes (ctx.createRadialGradient + shadeColor),
-  providing smooth light source reflection, 3D depth, and halo glow effects on selection/hover/pinned states.
-- Replaced 2D canvas Unicode approximations of floating info cards with a dedicated
-  HTML/DOM overlay that uses full KaTeX HTML rendering (identical to the node menu info card).
-- Rendered matrices ($egin{pmatrix} 1&4\\ 4&3\end{pmatrix}$), fractions ($rac{1}{2}$),
-  vertically stacked exponents and indices ($x_1^2$), daggers ($x^\dagger$), and math symbols
-  in their true mathematical layout within a dedicated inner <div> block.
-- Maintained 60fps real-time tracking (translate3d + scale) in the animation loop
-  so info cards smoothly follow nodes and edges during physics animation or dragging.
-- Preserved canvas dashed connector lines from nodes/edges to info cards.
-- Highlighted edges between neighbor nodes when hovering (Requirement 2).
-- Distinguished LMB drag (moves node) from LMB click (opens inspector) and double click (pins badge).
+1. Ported core v3.01 improvements:
+   - Floating right-hand panels (InfoCardModal & EdgeSettingsModal) without dark backdrops.
+   - High-fidelity KaTeX math typesetting for formulas and matrices.
+   - Clean UI and unified design language.
+2. Assistant Mode Search Bar:
+   - Positioned between "Assistant" badge and proposal action buttons.
+   - Identical in styling and real-time counter metrics to Student Mode.
+3. Proposal Management Updates:
+   - "Save Proposals" and "Load Proposals" transformed to compact, clean icon-only buttons with complete tooltips.
+   - "Save Proposals" directly triggers instant browser download of `proposal_diff.json` and updates LocalStorage (skipping intermediate confirmation dialog).
+4. Live Node Visual Preview in Inspector:
+   - Live canvas preview when adjusting node color or size level slider.
+   - Cancel button immediately restores original node color, size level, and radius.
+   - Explicit `key={selectedNode.id}` prevents state leakage across nodes.
+5. Edge Settings Panel & Canvas Rendering:
+   - Full support for dashed lines (`setLineDash([8, 5])`) and solid lines.
+   - Dynamic thickness slider from 1px to 9px with real-time canvas updates.
+   - Edited edge remains highlighted after clicking "Done" until the user moves the mouse.
+6. Fix Card Text Overwriting Bug:
+   - Completely resolved node card text leakage when switching between nodes or saving.
+7. Section Pinning & Custom Coordinates:
+   - Checkbox button directly to the left of the "Labels" button to toggle "Fix Sections".
+   - When active, ONLY section nodes (`type === 'section'`) are locked; chapters, subsections, and concepts move freely with physics.
+   - Reads default coordinates from `sectionCoordinates.txt` formatted as `English Title:Coordinate 1:Coordinate 2`.
+   - Section Coordinates Editor Modal (accessed via the coordinates button next to Save) allowing viewing, direct text editing, live generation from canvas layout, and instant saving.
 
-Key Code Sections:
-* Imports (Lines 1-8):
-  Added:
-    import { tokenizeLine, BADGE_SQUARE_COLORS } from '../utils/badgeFormatter';
-    import { renderLatexToHtml } from '../utils/latexRenderer';
-    import { X } from 'lucide-react';
-
-* Volumetric 3D Spherical Node Rendering (Lines 475-535):
-  Restored radial gradients for 3D sphere volume:
-    const glowGrad = ctx.createRadialGradient(node.x, node.y, r * 0.6, node.x, node.y, r * 2.2);
-    glowGrad.addColorStop(0, (node.color || '#38bdf8') + (isSelected || isHovered || isPinned || isSolid ? '99' : '44'));
-    glowGrad.addColorStop(1, 'transparent');
-    ctx.fillStyle = glowGrad;
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, r * 2.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    const fillGrad = ctx.createRadialGradient(
-      node.x - r * 0.3,
-      node.y - r * 0.3,
-      r * 0.1,
-      node.x,
-      node.y,
-      r
-    );
-    fillGrad.addColorStop(0, '#ffffff');
-    fillGrad.addColorStop(0.35, node.color || '#38bdf8');
-    fillGrad.addColorStop(1, shadeColor(node.color || '#38bdf8', -30));
-    ctx.fillStyle = fillGrad;
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-    ctx.fill();
-
-* Neighbor Edge Highlighting (Lines 340-360):
-  Added logic to include all edges where both endpoints belong to neighborSet:
-    edges.forEach(e => {
-      if (neighborSet.has(e.source) && neighborSet.has(e.target)) {
-        highlightedEdgeSet.add(e.id);
-      }
-    });
-
-* Animation Loop - Connector Lines & Real-time Tracking (Lines 680-770):
-  Replaced canvas text drawing with dashed connector line rendering on canvas
-  and real-time DOM element transform synchronization:
-    const cardEl = document.getElementById(`info-card-overlay-node-${targetNode.id}`);
-    if (cardEl) {
-      const screenX = cardX * scale + panX;
-      const screenY = cardY * scale + panY;
-      cardEl.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${scale})`;
-    }
-
-* LMB Drag vs Click Detection (Lines 835-860, 890-915, 935-955):
-  In handleMouseDown:
-    lmbStartPos.current = { x: clientX, y: clientY };
-    hasLmbMoved.current = false;
-    lmbHitNode.current = hitNode;
-    if (hitNode) {
-      isDraggingNode.current = hitNode;
-      hitNode.isFixed = true;
-    }
-  In handleMouseMove:
-    if (Math.hypot(clientX - lmbStartPos.current.x, clientY - lmbStartPos.current.y) > 4) {
-      hasLmbMoved.current = true;
-    }
-  In handleMouseUp:
-    if (!hasLmbMoved.current) {
-      if (lmbHitNode.current) onSelectNode(lmbHitNode.current);
-      else onSelectNode(null);
-    }
-
-* DOM Overlay Layer with KaTeX Div Block (Lines 1000-1160):
-  Added DOM overlay rendering inside container:
-    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
-      {activeNodeCards.map(targetNode => (
-        <div key={targetNode.id} id={`info-card-overlay-node-${targetNode.id}`} ...>
-          <div className="font-bold border-b pb-1.5 mb-2 ...">
-            <span>{headerTitle}</span>
-            {isPinned && <button onClick={() => onTogglePinNodeBadge(targetNode.id)}><X ... /></button>}
-          </div>
-          <div className="text-slate-200 leading-relaxed font-sans" style={{ fontSize: `${bodyFontSize}px` }}>
-            {renderMarkdownFormatted(targetNode.infoBadge.content)}
-          </div>
-        </div>
-      ))}
-    </div>
+================================================================================
+EXACT FILE CHANGES & IMPLEMENTATION DETAILS:
+================================================================================
 
 --------------------------------------------------------------------------------
-2. FILE: src/utils/latexRenderer.ts
+1. FILE: src/utils/sectionCoordinates.ts (NEW FILE)
 --------------------------------------------------------------------------------
-Fixes:
-- Fixed operator regex lookaheads with (?![a-zA-Z]) to prevent \top colliding with \to.
-- Enhanced subscript/superscript dictionary mapping for canvas fallbacks.
-- Corrected renderLatexToHtml to pass clean formula strings directly to KaTeX.
-
-Key Code Sections:
-* Regex Boundaries (Lines 75-120):
-  Updated replacements:
-    .replace(/\\top(?![a-zA-Z])/g, 'ᵀ')
-    .replace(/\\to(?![a-zA-Z])/g, '→')
-    .replace(/\\in(?![a-zA-Z])/g, '∈')
-    .replace(/\\pm(?![a-zA-Z])/g, '±')
-    .replace(/\\times(?![a-zA-Z])/g, '×')
-
-* KaTeX HTML Renderer (Lines 7-25):
-  export function renderLatexToHtml(formula: string, isDisplay = false): string {
-    try {
-      const cleanFormula = formula.trim();
-      if (!cleanFormula) return '';
-      return katex.renderToString(cleanFormula, {
-        displayMode: isDisplay,
-        throwOnError: false,
-        errorColor: '#f87171',
-      }});
-    } catch (err) {
-      ...
-    }
-  }
+Lines 1-52:
+- Defined `SectionCoord` interface and `DEFAULT_SECTION_COORDINATES_TEXT`.
+- Implemented `parseSectionCoordinates(text: string)` to parse `Title:X:Y` format.
+- Implemented `applySectionCoordinates(nodes: GraphNode[], text: string): GraphNode[]` to pin section nodes at specific pixel coordinates.
+- Implemented `formatSectionCoordinates(nodes: GraphNode[]): string` to extract and serialize current section coordinates.
 
 --------------------------------------------------------------------------------
-3. FILE: src/utils/badgeFormatter.ts
+2. FILE: src/components/SectionCoordinatesModal.tsx (NEW FILE)
 --------------------------------------------------------------------------------
-Fixes:
-- Preserved seg.latex in tokenizeLine so that renderers have access to the raw LaTeX formula.
+Lines 1-135:
+- Modal window for viewing, editing, generating, and saving `sectionCoordinates.txt`.
+- Provides "Generate from Canvas" button to serialize current section node layout.
+- Provides "Save Coordinates" button to immediately apply new coordinates across the graph.
 
-Key Code Sections:
-* Tokenization (Lines 22-35):
-  export function tokenizeLine(line: string): BadgeSegment[] {
-    const richSegments = parseRichLine(line);
-    return richSegments.map((seg: RichSegment): BadgeSegment => {
-      if (seg.type === 'latex') {
-        return {
-          type: 'latex',
-          latex: seg.latex,
-          text: latexToCanvasGlyphs(seg.latex || ''),
-        };
-      }
-      ...
-    });
-  }
+--------------------------------------------------------------------------------
+3. FILE: src/components/Toolbar.tsx
+--------------------------------------------------------------------------------
+- Lines 1-35: Added icon imports (`MapPin`, `CheckSquare`, `Square`, `Save`, `Upload`, etc.).
+- Lines 40-75: Updated `ToolbarProps` interface:
+    onDirectSaveProposals?: () => void;
+    nodes?: GraphNode[];
+    sectionCoordinatesText?: string;
+    onSaveSectionCoordinates?: (text: string) => void;
+- Lines 125-165: Center search bar rendered for both Student and Assistant modes with real-time match badges.
+- Lines 170-225: Assistant-only icon buttons group:
+    * Load Proposals button (Upload icon, amber).
+    * Direct Save Proposals button (Save icon, instant download).
+    * Section Coordinates Editor button (MapPin icon, emerald).
+- Lines 230-260: Fix Sections toggle checkbox button positioned directly left of Labels toggle:
+    <button onClick={() => onUpdateSettings({ fixSections: !settings.fixSections })}>
+      {settings.fixSections ? <CheckSquare /> : <Square />}
+    </button>
+- Lines 340-360: Mounted `SectionCoordinatesModal`.
 
 --------------------------------------------------------------------------------
 4. FILE: src/components/InfoCardModal.tsx
 --------------------------------------------------------------------------------
-Fixes:
-- Updated renderMarkdownFormatted to pass seg.latex || seg.text to renderLatexToHtml.
-- Removed KaTeX formula snippet buttons from the editing toolbar header.
-- Enabled node size level modification in Assistant mode (Requirement 1).
-
-Key Code Sections:
-* Markdown & KaTeX rendering (Lines 280-305):
-  if (seg.type === 'latex') {
-    const rawLatex = seg.latex || seg.text || '';
-    return (
-      <span
-        key={segIdx}
-        className="inline-block px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
-        dangerouslySetInnerHTML={{ __html: renderLatexToHtml(rawLatex) }}
-      />
-    );
-  }
-
-* Clean Editing Toolbar (Lines 550-575):
-  Removed snippet buttons: $\mathbb{R}^n$, $\frac{1}{2}$, $\begin{pmatrix}...\end{pmatrix}$.
-  Preserved bold, colored squares, and $LaTeX$ help modal button.
+- Lines 1-50: Cleaned unused imports and aligned `InfoCardModalProps`.
+- Lines 65-115: State synchronization & reset on node change:
+    useEffect(() => {
+      setIsEditingInfo(false);
+      setInfoContent(node.infoBadge?.content || '');
+      setIsEditingProperties(false);
+      setLabelEn(node.labelEn);
+      setLabelCn(node.labelCn || '');
+      setSelectedColor(node.color);
+      // Synchronize size and original properties reference
+    }, [node.id, ...]);
+- Lines 215-260: Live property previews & Cancel revert handlers:
+    handleColorChange -> onPreviewProperties(node.id, { color, customSizeLevel })
+    handleSizeLevelChange -> onPreviewProperties(node.id, { color, customSizeLevel })
+    handleCancelProperties -> Reverts canvas preview and local state to `originalPropertiesRef.current`.
+- Lines 310-440: Floating right-hand styling (`w-96`, `top-16`, `bottom-6`, `right-4`, backdrop-blur-md, no dark backdrop).
 
 --------------------------------------------------------------------------------
 5. FILE: src/components/EdgeSettingsModal.tsx
 --------------------------------------------------------------------------------
-Fixes:
-- Updated renderMarkdownFormatted to pass seg.latex || seg.text to renderLatexToHtml.
-- Removed KaTeX snippet buttons from the edge card editing toolbar header.
+- Lines 1-60: Floating right-hand design without screen-covering backdrop.
+- Lines 65-105: State synchronization on `edge.id` change:
+    useEffect(() => {
+      setThickness(edge.thickness || Math.min(9, Math.max(1, edge.weight || 2)));
+      setLineStyle((edge.style || edge.lineStyle) === 'dashed' ? 'dashed' : 'solid');
+      setColor(edge.color || '#94a3b8');
+      setInfoContent(cleanInitialContent);
+    }, [edge.id, ...]);
+- Lines 110-175: Immediate update handlers:
+    handleLineStyleChange -> onUpdateEdge(edge.id, { style, lineStyle })
+    handleThicknessChange -> onUpdateEdge(edge.id, { thickness, weight })
+    handleColorChange -> onUpdateEdge(edge.id, { color })
+- Lines 240-320: Style toggle (Solid vs Dashed), thickness slider (1-9), color palette, and KaTeX note editor.
 
 --------------------------------------------------------------------------------
-6. FILE: src/components/Toolbar.tsx
+6. FILE: src/components/GraphCanvas.tsx
 --------------------------------------------------------------------------------
-Fixes:
-- Added Pause/Play button in top-right header for Student mode (Requirement 0).
-
-Key Code Sections:
-* Student Header Controls (Lines 270-285):
-  <button
-    onClick={() => onUpdateSettings({ physicsRunning: !settings.physicsRunning })}
-    className={`p-1.5 rounded-lg border text-xs transition ${
-      settings.physicsRunning
-        ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
-        : 'bg-slate-800 border-slate-700 text-slate-400'
-    }`}
-    title={settings.physicsRunning ? 'Pause Physics' : 'Resume Physics'}
-  >
-    {settings.physicsRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-  </button>
+- Lines 330-365: Section pinning logic in animation loop:
+    if (settings.fixSections) {
+      nodes.forEach(node => {
+        if (node.type === 'section') node.isFixed = true;
+        else if (!isDraggingNode.current || isDraggingNode.current.id !== node.id) node.isFixed = false;
+      });
+    }
+- Lines 420-475: Dashed and solid line styling on canvas:
+    if ((edge.lineStyle || edge.style) === 'dashed') {
+      ctx.setLineDash([8, 5]);
+    } else {
+      ctx.setLineDash([]);
+    }
+    const baseThickness = edge.thickness !== undefined ? edge.thickness : (edge.weight || 1.5);
+    ctx.lineWidth = (isHovered || isHighlighted ? baseThickness * 2 : baseThickness);
+- Lines 880-920: Decoupled single click (opens inspector with 240ms debounce) from double click (pins badge).
+- Lines 930-945: Mouse movement clears persistent edge highlight:
+    if (persistedHighlightEdgeId && onClearPersistedHighlightEdge) {
+      onClearPersistedHighlightEdge();
+    }
 
 --------------------------------------------------------------------------------
 7. FILE: src/App.tsx
 --------------------------------------------------------------------------------
-Fixes:
-- In handleEnterLocalGraph, reset selectedNodeId to null so central node is not selected by default (Requirement 3).
-- In handleUpdateProperties, accepted customSizeLevel and updated node radius and size level for Assistant mode (Requirement 1).
-
-Key Code Sections:
-* Local Graph Entry (Lines 318-326 in web / Lines 430-438 in author):
-  const handleEnterLocalGraph = (nodeId: string, depth: 1 | 2) => {
-    setSelectedNodeId(null);
-    setLocalGraphState({
-      active: true,
-      rootNodeId: nodeId,
-      depth,
-    });
-    ...
-  };
-
-* Property Updates (Lines 440-465 in web / Lines 560-585 in author):
-  const handleUpdateProperties = (
-    nodeId: string,
-    labelEn: string,
-    labelCn: string,
-    color: string,
-    customSizeLevel?: number
-  ) => {
-    ...
-    const updatedNode = {
-      ...n,
-      labelEn: labelEn.trim(),
-      labelCn: labelCn.trim() || labelEn.trim(),
-      color: color || n.color,
-      customSizeLevel,
-      isCustomOrEdited: true,
+- Lines 35-60: Initialized section coordinates and applied to initial node set.
+- Lines 110-140: Dynamic loading of `/sectionCoordinates.txt` at runtime.
+- Lines 285-300: Persistent edge highlight handling on modal close:
+    const handleCloseEdgeSettings = () => {
+      if (edgeSettingsTarget) setPersistedHighlightEdgeId(edgeSettingsTarget.id);
+      setEdgeSettingsTarget(null);
     };
-    ...
-  };
-
---------------------------------------------------------------------------------
-8. FILE: src/utils/svgExporter.ts
---------------------------------------------------------------------------------
-Fixes:
-- Updated LaTeX token handling to use seg.latex || seg.text for SVG export rendering.
-
---------------------------------------------------------------------------------
-9. FILE: package.json
---------------------------------------------------------------------------------
-Fixes:
-- Updated version number to 1.2.0.
+- Lines 480-520: Direct proposal export without modal (`handleDirectSaveProposals`).
+- Lines 730-800: Bound `key={selectedNode.id}` to `InfoCardModal` and `key={edgeSettingsTarget.id}` to `EdgeSettingsModal`.
 
 ================================================================================
-END OF FILE
+VERIFICATION & BUILD CONFIRMATION:
+================================================================================
+- `npm run build` executed successfully with 0 TypeScript and 0 Vite bundling errors.
+- Package verified and archived into `GitHub_Graph_v2.00.zip`.
 ================================================================================
