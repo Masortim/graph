@@ -1,8 +1,8 @@
 {
   "version": "2.4.0",
   "name": "Linear Algebra NSU - Lectures",
-  "createdAt": "2030-09-27T19:21:20.531Z",
-  "updatedAt": "2030-09-27T19:21:20.531Z",
+  "createdAt": "2030-09-28T21:27:58.495Z",
+  "updatedAt": "2030-09-28T21:27:58.495Z",
   "nodes": [
     {
       "id": "sec_2_normal_operators",
@@ -269,14 +269,22 @@
       "vx": -0.04279065899446941,
       "vy": 0.005804860349760994,
       "radius": 22,
-      "baseRadius": 14,
+      "baseRadius": 22,
       "weight": 6,
-      "color": "#38bdf8",
+      "color": "#ec4899",
       "rawText": "Subsection: Matrix Sizes",
-      "connectedCount": 1,
+      "connectedCount": 5,
       "deletedEdgeKeys": [],
       "sizeLevel": 3,
-      "isFixed": false
+      "isFixed": false,
+      "infoBadge": {
+        "content": "\nНужна связь с какой-то ранней лекцией.\n🟦 29.09.2026 Матрицы начинаются в лекции 6, но есть и в лекции 2. Обе связи добавил 🟦 ",
+        "createdAt": "2026-09-29T06:54:44.299Z",
+        "updatedAt": "2030-09-28T20:34:52.056Z",
+        "scale": 1
+      },
+      "isAssistantProposal": true,
+      "isCustomOrEdited": true
     },
     {
       "id": "subsec_13_2_singular_values_and_singular_vectors",
@@ -1456,7 +1464,7 @@
     },
     {
       "id": "subsec_68_2_linear_mapping_matrix",
-      "labelEn": "Matrix of a Linear Mapping",
+      "labelEn": "Matrix of a Linear Map",
       "labelCn": "线性映射的矩阵",
       "type": "subsection",
       "level": 3,
@@ -1474,7 +1482,7 @@
       "weight": 6,
       "color": "#f59e0b",
       "rawText": "Subsection: Linear Mapping Matrix",
-      "connectedCount": 3,
+      "connectedCount": 4,
       "deletedEdgeKeys": [],
       "isFixed": false,
       "sizeLevel": 3,
@@ -2906,7 +2914,15 @@
       "connectedCount": 1,
       "deletedEdgeKeys": [],
       "isFixed": false,
-      "sizeLevel": 3
+      "sizeLevel": 3,
+      "isCustomOrEdited": true,
+      "infoBadge": {
+        "content": "$\\frac{1}{2}$",
+        "createdAt": "2030-09-28T20:54:55.057Z",
+        "updatedAt": "2030-09-28T20:54:55.057Z",
+        "scale": 1
+      },
+      "badgeScale": 1
     },
     {
       "id": "subsec_135_5_inverse_matrix_in_matrix_equations",
@@ -2952,7 +2968,7 @@
       "weight": 10,
       "color": "#100cd4",
       "rawText": "Section: Matrix Operations",
-      "connectedCount": 13,
+      "connectedCount": 14,
       "deletedEdgeKeys": [],
       "isFixed": false,
       "isCustomOrEdited": true,
@@ -3530,7 +3546,15 @@
         "merged_1789278521301_subsec_1_subsec_2<->subsec_163_8_normal_matrix"
       ],
       "isFixed": false,
-      "sizeLevel": 3
+      "sizeLevel": 3,
+      "infoBadge": {
+        "content": "Связи этого узла должны показывать, что такие матрицы обобщают несколько важных типов, а связь от Лекции 9 может идти только к нему, а не ко всем этим типам 🟦 Тем не менее, в лекции 9 (Types of Matrices) разбираются все эти типы матриц по отдельности. С точки зрения лекции 9, есть просто список типов матриц, которые нужно знать и которые используются в курсе (там ещё и свойства есть типа прямых сумм), чтобы потом не отвлекаться на ввод определений 🟦 ",
+        "createdAt": "2026-09-29T08:17:51.873Z",
+        "updatedAt": "2030-09-28T20:32:48.737Z",
+        "scale": 1
+      },
+      "isAssistantProposal": true,
+      "isCustomOrEdited": true
     },
     {
       "id": "subsec_164_9_positive_definite_matrix",
@@ -3866,7 +3890,7 @@
       "weight": 10,
       "color": "#100cd4",
       "rawText": "Section: Linear Spaces",
-      "connectedCount": 6,
+      "connectedCount": 7,
       "deletedEdgeKeys": [
         "sec_180_linear_spaces<->subsec_183_3_linear_space_of_matrices"
       ],
@@ -4187,7 +4211,15 @@
       "connectedCount": 1,
       "deletedEdgeKeys": [],
       "sizeLevel": 3,
-      "isFixed": false
+      "isFixed": false,
+      "infoBadge": {
+        "content": "Не понимаю этот узел 🟦 29.09.2026 Сам по себе данный узел, наверное, не нужен. В лекции 5 (о подпространствах) есть подсекция, в которой выясняется, что линейная оболочка какого-то количества базисных векторов автоматом даёт подпространства, где эти векторы - базис. . Об этом можно написать в карточке связи Basis - Linear Span, например. А в связи \"Basis - Vector\" можно тоже что-то написать на эту тему.  🟦 ",
+        "createdAt": "2026-09-29T07:41:06.440Z",
+        "updatedAt": "2030-09-28T20:29:33.257Z",
+        "scale": 1
+      },
+      "isAssistantProposal": true,
+      "isCustomOrEdited": true
     },
     {
       "id": "subsec_198_2_geometric_intersections",
@@ -4250,7 +4282,14 @@
         "coordinate system transformation"
       ],
       "isCustomOrEdited": true,
-      "frequency": 61
+      "frequency": 61,
+      "infoBadge": {
+        "content": "Поменял местами с узлом Matrix.\nМного узлов с типами преобразований, связанные с этим и Лекцией 10, кажутся создающими локальный хаос. Не придумал пока, что с ним делать. 🟦 29.09.2026. В лекции 10 идёт концепция изменения координатной системы при точках пространства остающихся на месте. И там просто идут перечисления различных вариантов этих преобразований с указанием матрицы Change-of-Coordinate Matrix.🟦 \nЗато увидел тут упущенную важную тонкость: разницу между преобразованием координат, оставляющим точки на месте, и преобразованием фигур, оставляющим на месте систему координат. У меня про это блок Active and passive transformations. 🟦 29.09.2026 Об этом в лекции говорится. Подчёркивается разница. Активное трансформирование точек с неподвижной системой координат называется в 1-ой и 7-ой лекциях Vector Transformation, а также в лекции 11 (Transition Matrix) в контексте, что трансформируем базисные векторы в стандартной системе координат. Это понятие потом затянуто в Линейный оператор, когда он появится в Лекции 19. 🟦 ",
+        "createdAt": "2026-09-29T07:15:59.950Z",
+        "updatedAt": "2030-09-28T20:21:41.722Z",
+        "scale": 1
+      },
+      "isAssistantProposal": true
     },
     {
       "id": "subsec_203_7_linear_operator",
@@ -4454,21 +4493,22 @@
       "type": "concept",
       "level": 2,
       "clusterId": "chap_53_chapter_05",
-      "x": -898.7630045862194,
-      "y": -445.6227662680442,
-      "vx": 0.021445979394733677,
-      "vy": -0.04325635909446618,
+      "x": -901.1724163509253,
+      "y": -442.00864862098524,
+      "vx": 0,
+      "vy": 0,
       "radius": 17,
       "baseRadius": 17,
       "weight": 4,
       "color": "#f59e0b",
-      "connectedCount": 4,
+      "connectedCount": 5,
       "isCustomOrEdited": true,
       "originalLabelEn": "Linear Mapping",
       "originalLabelCn": "Linear Mapping",
       "deletedEdgeKeys": [],
       "sizeLevel": 2,
-      "isFixed": false
+      "isFixed": false,
+      "isAssistantProposal": true
     },
     {
       "id": "merged_1789278521301_subsec_1_subsec_2",
@@ -4480,10 +4520,10 @@
       "level": 3,
       "clusterId": "chap_165_chapter_01",
       "parentId": "sec_180_linear_spaces",
-      "x": -92.18141486960684,
-      "y": -570.9791694932454,
-      "vx": 0.02748009122318784,
-      "vy": -0.004437186585961182,
+      "x": -229.83592577971945,
+      "y": -286.8129770509135,
+      "vx": 0,
+      "vy": 0,
       "radius": 57,
       "baseRadius": 57,
       "weight": 12,
@@ -4765,8 +4805,8 @@
       "y": 772.0652647538873,
       "vx": -0.037159264150343374,
       "vy": -0.04799376759522504,
-      "radius": 27,
-      "baseRadius": 20,
+      "radius": 33,
+      "baseRadius": 33,
       "weight": 4,
       "color": "#10b981",
       "connectedCount": 13,
@@ -4775,10 +4815,19 @@
       "originalLabelCn": "Determinant",
       "isFixed": false,
       "deletedEdgeKeys": [],
-      "sizeLevel": 4,
+      "sizeLevel": 5,
       "keyPhrases": [
-        "determinant"
-      ]
+        "determinant",
+        "determinants"
+      ],
+      "infoBadge": {
+        "content": "Этот узел должен быть крупнее. Возможно, решится добавлением связей.\n29.09.2026. Пока одна лекция из 4х написана о нём. Сейчас размер уже 5. Вхождений пока 48. Ещё 3 и скакнёт в размер 6. ",
+        "createdAt": "2026-09-29T07:07:22.671Z",
+        "updatedAt": "2030-09-28T20:00:05.424Z",
+        "scale": 1
+      },
+      "isAssistantProposal": true,
+      "frequency": 48
     },
     {
       "id": "custom_node_1789322703664_8tyfl",
@@ -5074,7 +5123,14 @@
         "quadric surface",
         "quadric surfaces"
       ],
-      "frequency": 10
+      "frequency": 10,
+      "infoBadge": {
+        "content": "Лучше слить с узлом Quadratic Curve, новый узел назвать Degree 2 curves and surfaces. 🟦 29.09. Нужно обсудить. Предлагаемое название кажется концептуально сложнее (да и в лекциях нет ни слова про degree - только в полиномах). Возможно, стоит создать связь между Quadratic Curves и Quadric Surfaces и в карточке этой связи уже написать, что оба математических объекта это уравнения степени 2.🟦 ",
+        "createdAt": "2026-09-29T07:33:12.362Z",
+        "updatedAt": "2030-09-28T21:27:37.454Z",
+        "scale": 1
+      },
+      "isAssistantProposal": true
     },
     {
       "id": "merged_1789334085093_subsec_8_subsec_1",
@@ -5093,7 +5149,7 @@
       "radius": 27,
       "baseRadius": 27,
       "weight": 12,
-      "color": "#10b981",
+      "color": "#f43f5e",
       "rawText": "[Merged Node: Linear Independence]\n\n--- Source A (Linear Independence of vectors) ---\nSubsection: Linear Independence of vectors\n\n--- Source B (Linear Dependence and Independence) ---\nVectors are linearly independent, if their linear combination is equal to zero-vector in the case of zero-coefficients only.\n\n>[!info] Vectors $\\vec{v_1}, \\vec{v_2},\\cdots,\\vec{v_n}$ $-$ linearly independent\n>$\\left<V,+,\\cdot\\mathbb{F}\\right>$ $-$ linear space, $\\quad\\vec{v_1}, \\vec{v_2},\\cdots,\\vec{v_n}\\in V$, $\\quad\\alpha_1, \\alpha_2, \\cdots, \\alpha_n\\in\\mathbb{F},$\n>$$\\alpha_1\\vec{v_1}+\\alpha_2\\vec{v_2}+\\cdots+\\alpha_n\\vec{v_n}=\\vec{0}\\quad \\iff \\quad\\alpha_1=\\alpha_2= \\cdots =\\alpha_n=0,$$\n>then \n>vectors $\\vec{v_1}, \\vec{v_2},\\cdots,\\vec{v_n}$ are linearly independent.\n\n>[!example] Linearly independent vectors\n>Consider vectors $\\begin{pmatrix} 2 \\\\ 3 \\end{pmatrix}$,  $\\begin{pmatrix} -1 \\\\ 2 \\end{pmatrix}\\in\\mathbb{R}^2$ and equalize to zero their linear combination: \n>$$\\alpha_1 \\begin{pmatrix} 2 \\\\ 3 \\end{pmatrix}+\\alpha_2 \\begin{pmatrix} -1 \\\\ 2 \\end{pmatrix}=\\vec{0}.$$\n>Applying vector addition operation, we get:\n>$$\\alpha_1 \\begin{pmatrix} 2 \\\\ 3 \\end{pmatrix}+\\alpha_2 \\begin{pmatrix} -1 \\\\ 2 \\end{pmatrix}=\\begin{pmatrix} 2\\alpha_1+2\\alpha_2 \\\\ 3\\alpha_1 - \\alpha_2 \\end{pmatrix}=\\begin{pmatrix} 0 \\\\ 0 \\end{pmatrix},$$\n>which gives $\\alpha_1=-\\alpha_2$ and $-7\\alpha_2=0$, therefore $\\alpha_1=\\alpha_2=0$ and given vectors are linearly independent.\n\nPractically, it means that any single vector from the linearly independent set cannot be equal to linear combination of other vectors of that set. Otherwise, vectors are linearly dependent.\n\n>[!info] Vectors $\\vec{v_1}, \\vec{v_2},\\cdots,\\vec{v_n}$ $-$ linearly dependent\n>$\\left<V,+,\\cdot\\mathbb{F}\\right>$ $-$ linear space, $\\quad\\vec{v_1}, \\vec{v_2},\\cdots,\\vec{v_n}\\in V$, \n>$\\exists\\, i\\in\\,\\{1,\\cdots ,n\\},\\quad \\exists\\, \\alpha_1, \\alpha_2, \\cdots, \\alpha_{i-1},\\alpha_{i+1},\\cdots,\\alpha_n\\in\\mathbb{F}\\quad$ such that:\n>$$\\vec{v_i}=\\sum_{\\substack{k=1 \\\\ k \\ne i}}^{n} \\alpha_k\\vec{v_k},$$\n>then \n>vectors $\\vec{v_1}, \\vec{v_2},\\cdots,\\vec{v_n}$ are linearly dependent.\n\n>[!example] Linearly dependent vectors\n>Consider vectors $\\begin{pmatrix} 1 \\\\ 2 \\\\ 3\\end{pmatrix}$,  $\\begin{pmatrix} 0 \\\\ 2 \\\\ 4 \\end{pmatrix}$, $\\begin{pmatrix} 3 \\\\ 3 \\\\ 3\\end{pmatrix}\\in\\mathbb{R}^3.$ One can see that \n>$$\\begin{pmatrix} 1 \\\\ 2 \\\\ 3\\end{pmatrix}=\\frac{1}{2}\\begin{pmatrix} 0 \\\\ 2 \\\\ 4 \\end{pmatrix}+\\frac{1}{3}\\begin{pmatrix} 3 \\\\ 3 \\\\ 3\\end{pmatrix}.$$\n>Therefore, given vectors are linearly dependent. \n\nTwo vectors with proportional components are oviously linearly dependent, so any vector set, containing such vectors, is also linearly dependent.\n\n>[!example] Linearly dependent vectors with proportional components\n>Consider matrices $A,B\\in M_2(\\mathbb{R})$, $A=\\begin{pmatrix} 1 & 1\\\\ 1 & 1\\end{pmatrix}$,  $B=\\begin{pmatrix} 3 & 3\\\\ 3 & 3\\end{pmatrix}.$ Obviously, $\\begin{pmatrix} 3 & 3\\\\ 3 & 3\\end{pmatrix}=3\\begin{pmatrix} 1 & 1\\\\ 1 & 1\\end{pmatrix}$, so matrices $A,B$ are lienarly dependent.\n>\n>Set of four matrices $\\left < \\begin{pmatrix} 1 & 1\\\\ 1 & 1\\end{pmatrix}, \\begin{pmatrix} 1 & 0\\\\ 2 & 4\\end{pmatrix}, \\begin{pmatrix} 5 & 1\\\\ -1 & 3\\end{pmatrix}, \\begin{pmatrix} 3 & 3\\\\ 3 & 3\\end{pmatrix} \\right >$ is also linearly dependent, since\n>$$\\begin{pmatrix} 3 & 3\\\\ 3 & 3\\end{pmatrix}=3\\cdot\\begin{pmatrix} 1 & 1\\\\ 1 & 1\\end{pmatrix}+0\\cdot\\begin{pmatrix} 1 & 0\\\\ 2 & 4\\end{pmatrix}+0\\cdot\\begin{pmatrix} 5 & 1\\\\ -1 & 3\\end{pmatrix}.$$\n\nIn $\\mathbb{R}^2$, any set of linear dependent vectors always contains two vectros with proportional components.",
       "isCustomOrEdited": true,
       "mergedFrom": {
@@ -5115,7 +5171,8 @@
         "linear independence"
       ],
       "frequency": 22,
-      "sizeLevel": 4
+      "sizeLevel": 4,
+      "isAssistantProposal": true
     },
     {
       "id": "custom_node_1789334642338_9vz9c",
@@ -5961,7 +6018,8 @@
       "connectedCount": 10,
       "isFixed": false,
       "frequency": 194,
-      "deletedEdgeKeys": []
+      "deletedEdgeKeys": [],
+      "isAssistantProposal": true
     },
     {
       "id": "merged_1916083025238_subsec_1_subsec_1",
@@ -9092,7 +9150,10 @@
       "weight": 4,
       "curvature": 0.18,
       "color": "#94a3b8",
-      "isManual": true
+      "isManual": true,
+      "thickness": 4,
+      "style": "solid",
+      "lineStyle": "solid"
     },
     {
       "id": "edge_manual_subsec_171_5_cartesian_and_affine_coordinate_systems_merged_1789281103622_merged_1_subsec_2_1789329483591",
@@ -11348,6 +11409,145 @@
       "target": "merged_1789281103622_merged_1_subsec_2",
       "type": "manual",
       "weight": 5,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn"
+    },
+    {
+      "id": "edge_m_merged_1789281103622_merged_1_subsec_2_merged_1789240902639_sec_196__subsec_2",
+      "source": "merged_1789240902639_sec_196__subsec_2",
+      "target": "merged_1789281103622_merged_1_subsec_2",
+      "type": "merged",
+      "weight": 2,
+      "curvature": 0.1,
+      "color": "#94a3b8",
+      "isAssistantProposal": true
+    },
+    {
+      "id": "edge_manual_subsec_12_1_matrix_sizes_merged_1916082239097_subsec_1_subsec_1_1790663001397",
+      "source": "subsec_12_1_matrix_sizes",
+      "target": "merged_1916082239097_subsec_1_subsec_1",
+      "type": "manual",
+      "weight": 2,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn",
+      "isAssistantProposal": true
+    },
+    {
+      "id": "edge_manual_merged_1789278521301_subsec_1_subsec_2_subsec_12_1_matrix_sizes_1790665050924",
+      "source": "merged_1789278521301_subsec_1_subsec_2",
+      "target": "subsec_12_1_matrix_sizes",
+      "type": "manual",
+      "weight": 2,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn",
+      "isAssistantProposal": true
+    },
+    {
+      "id": "edge_manual_merged_1789278521301_subsec_1_subsec_2_subsec_201_5_coordinate_change_1790665744410",
+      "source": "merged_1789278521301_subsec_1_subsec_2",
+      "target": "subsec_201_5_coordinate_change",
+      "type": "manual",
+      "weight": 2,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "en",
+      "isAssistantProposal": true,
+      "badgeScale": 1
+    },
+    {
+      "id": "edge_manual_merged_1789334085093_subsec_8_subsec_1_subsec_193_6_basis_vector_linear_span_1790667490615",
+      "source": "merged_1789334085093_subsec_8_subsec_1",
+      "target": "subsec_193_6_basis_vector_linear_span",
+      "type": "manual",
+      "weight": 2,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn",
+      "isAssistantProposal": true
+    },
+    {
+      "id": "edge_manual_merged_1916082239097_subsec_1_subsec_1_subsec_169_3_coordinates_1790667896188",
+      "source": "merged_1916082239097_subsec_1_subsec_1",
+      "target": "subsec_169_3_coordinates",
+      "type": "manual",
+      "weight": 2,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn",
+      "isAssistantProposal": true,
+      "thickness": 2,
+      "style": "solid",
+      "lineStyle": "solid",
+      "badgeScale": 1,
+      "infoBadge": {
+        "content": "The dimension of an object is the minimum number of coordinates needed to specify this object or a point of it.",
+        "createdAt": "2026-09-29T07:56:51.997Z",
+        "updatedAt": "2026-09-29T07:56:51.997Z",
+        "scale": 1,
+        "language": "cn"
+      }
+    },
+    {
+      "id": "edge_manual_merged_1916083025238_subsec_1_subsec_1_subsec_135_5_inverse_matrix_in_matrix_equations_1790669370571",
+      "source": "merged_1916083025238_subsec_1_subsec_1",
+      "target": "subsec_135_5_inverse_matrix_in_matrix_equations",
+      "type": "manual",
+      "weight": 2,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn",
+      "isAssistantProposal": true
+    },
+    {
+      "id": "edge_manual_merged_1916083025238_subsec_1_subsec_1_subsec_133_3_inverse_matrix_in_matrix_vector_equations_1790669402588",
+      "source": "merged_1916083025238_subsec_1_subsec_1",
+      "target": "subsec_133_3_inverse_matrix_in_matrix_vector_equations",
+      "type": "manual",
+      "weight": 2,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn",
+      "isAssistantProposal": true
+    },
+    {
+      "id": "edge_manual_custom_node_1789252721709_qjumk_subsec_68_2_linear_mapping_matrix_1916856685350",
+      "source": "custom_node_1789252721709_qjumk",
+      "target": "subsec_68_2_linear_mapping_matrix",
+      "type": "manual",
+      "weight": 2,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn"
+    },
+    {
+      "id": "edge_manual_subsec_12_1_matrix_sizes_sec_180_linear_spaces_1916858255851",
+      "source": "subsec_12_1_matrix_sizes",
+      "target": "sec_180_linear_spaces",
+      "type": "manual",
+      "weight": 4,
+      "curvature": 0.18,
+      "color": "#94a3b8",
+      "isManual": true,
+      "badgeLanguage": "cn"
+    },
+    {
+      "id": "edge_manual_subsec_12_1_matrix_sizes_sec_136_matrix_operations_1916858307876",
+      "source": "subsec_12_1_matrix_sizes",
+      "target": "sec_136_matrix_operations",
+      "type": "manual",
+      "weight": 4,
       "curvature": 0.18,
       "color": "#94a3b8",
       "isManual": true,
