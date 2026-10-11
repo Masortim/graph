@@ -59,7 +59,7 @@ export const SectionCoordinatesModal: React.FC<SectionCoordinatesModalProps> = (
           <button
             onClick={onClose}
             className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-            title="Закрыть"
+            title={isAssistant ? 'Close' : 'Закрыть'}
           >
             <X className="w-4 h-4" />
           </button>
@@ -77,7 +77,7 @@ export const SectionCoordinatesModal: React.FC<SectionCoordinatesModalProps> = (
               type="button"
               onClick={handleGenerateFromGraph}
               className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-[11px] font-medium text-sky-300 hover:text-sky-200 transition flex items-center gap-1 shadow-sm"
-              title="Заполнить текущими координатами секций из графа"
+              title={isAssistant ? 'Fill in with the current section coordinates taken from the graph' : 'Заполнить текущими координатами секций из графа'}
             >
               <RefreshCw className="w-3 h-3 text-sky-400" />
               <span>{isAssistant ? 'Capture Current Graph' : 'Взять с текущего графа'}</span>
@@ -93,8 +93,16 @@ export const SectionCoordinatesModal: React.FC<SectionCoordinatesModalProps> = (
           />
 
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-400 leading-relaxed">
-            <p>• При включённой кнопке-галочке <strong>Fix Sections</strong> узлы секций центрируются по этим координатам и остаются неподвижными в физике.</p>
-            <p>• Не-секционные узлы (главы, подсекции, концепты) продолжают динамически группироваться вокруг них по ForceAtlas2.</p>
+            <p>
+              {isAssistant
+                ? <>• With the <strong>Fix Sections</strong> checkbox button enabled, section nodes are centered at these coordinates and remain fixed in the physics simulation.</>
+                : <>• При включённой кнопке-галочке <strong>Fix Sections</strong> узлы секций центрируются по этим координатам и остаются неподвижными в физике.</>}
+            </p>
+            <p>
+              {isAssistant
+                ? '• Non-section nodes (chapters, subsections, concepts) keep grouping dynamically around them according to ForceAtlas2.'
+                : '• Не-секционные узлы (главы, подсекции, концепты) продолжают динамически группироваться вокруг них по ForceAtlas2.'}
+            </p>
           </div>
         </div>
 

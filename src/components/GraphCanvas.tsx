@@ -1,12 +1,14 @@
 import defaultGraphConfig from '../data/graphConfig.json';
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import type { GraphNode, GraphEdge, GraphSettings } from '../types/graph';
+import type { GraphNode, GraphEdge, GraphSettings, AppMode } from '../types/graph';
 import { ForceAtlas2Simulation, type PhysicsParams } from '../utils/forceAtlas2';
 import { tokenizeLine, BADGE_SQUARE_COLORS } from '../utils/badgeFormatter';
 import { renderLatexToHtml } from '../utils/latexRenderer';
 import { X } from 'lucide-react';
 
 interface GraphCanvasProps {
+  /** Application mode: drives the UI language of canvas overlays (Assistant = English). */
+  mode?: AppMode;
   nodes: GraphNode[];
   edges: GraphEdge[];
   selectedNodeId: string | null;
@@ -119,6 +121,7 @@ function getBezierMidPoint(x1: number, y1: number, cx: number, cy: number, x2: n
 }
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
+  mode = 'student',
   nodes,
   edges,
   selectedNodeId,
@@ -143,6 +146,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   persistedHighlightEdgeId,
   onClearPersistedHighlightEdge,
 }) => {
+  const isAssistant = mode === 'assistant';
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -1204,6 +1208,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       <canvas
         ref={canvasRef}
         className="w-full h-full cursor-grab active:cursor-grabbing block"
+        draggable={false}
+        onDragStart={e => e.preventDefault()}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
         onMouseMove={handleMouseMove}
@@ -1260,7 +1266,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                     type="button"
                     onClick={() => onTogglePinNodeBadge(targetNode.id)}
                     className="text-slate-400 hover:text-white p-0.5 rounded transition hover:bg-slate-800"
-                    title="Открепить карточку"
+                    title={isAssistant ? 'Unpin card' : 'Открепить карточку'}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1328,7 +1334,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                     type="button"
                     onClick={() => onTogglePinEdgeBadge(targetEdge.id)}
                     className="text-slate-400 hover:text-white p-0.5 rounded transition hover:bg-slate-800"
-                    title="Открепить карточку"
+                    title={isAssistant ? 'Unpin card' : 'Открепить карточку'}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

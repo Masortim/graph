@@ -13,6 +13,7 @@ import {
   countVaultKeyphraseOccurrences 
 } from './utils/nodeMetrics';
 import { generateAssistantProposal } from './utils/proposalManager';
+import { useBrowserGestureGuard } from './utils/browserGestureGuard';
 import { 
   DEFAULT_SECTION_COORDINATES_TEXT, 
   applySectionCoordinates 
@@ -162,6 +163,12 @@ export function App() {
     window.addEventListener('contextmenu', handleGlobalContextMenu, { capture: true });
     return () => window.removeEventListener('contextmenu', handleGlobalContextMenu, { capture: true });
   }, []);
+
+  // Assistant mode only: disable browser level mouse gestures that pop up browser menus over the
+  // graph (middle click autoscroll, Back/Forward side buttons, native drag & drop, selection
+  // popups on double click, Ctrl+Wheel page zoom, trackpad pinch & swipe navigation).
+  // Student mode is left exactly as it was.
+  useBrowserGestureGuard(mode === 'assistant');
 
   // Toggle Pinned Node Badge on Double Click
   const handleTogglePinNodeBadge = (nodeId: string) => {
@@ -490,7 +497,10 @@ export function App() {
     showToast(mode === 'assistant' ? `Card scale: ${Math.round(scale * 100)}%` : `Масштаб карточки: ${Math.round(scale * 100)}%`);
   };
 
-  // Live visual preview of node color & size
+  // Live visual preview of node color & size (Assistant node properties editor).
+  // The change is applied to the graph immediately, while the editor stays open; it is committed
+  // by OK and reverted by Cancel. `customSizeLevel` may be passed explicitly as `undefined` to
+  // clear the manual override, i.e. to revert to the automatically calculated size level.
   const handlePreviewNodeProperties = (
     nodeId: string,
     updates: { color?: string; customSizeLevel?: number }
@@ -499,7 +509,8 @@ export function App() {
       prev.map(n => {
         if (n.id !== nodeId) return n;
         const newColor = updates.color !== undefined ? updates.color : n.color;
-        const newCustomSize = updates.customSizeLevel !== undefined ? updates.customSizeLevel : n.customSizeLevel;
+        const hasCustomSizeUpdate = Object.prototype.hasOwnProperty.call(updates, 'customSizeLevel');
+        const newCustomSize = hasCustomSizeUpdate ? updates.customSizeLevel : n.customSizeLevel;
         const calculatedSize = newCustomSize !== undefined 
           ? newCustomSize 
           : calculateNodeSizeLevel({ ...n, customSizeLevel: newCustomSize }, n.connectedCount || 0, n.frequency || 0);
@@ -799,7 +810,7 @@ export function App() {
     }
 
     setIsSaveProposalModalOpen(false);
-    showToast(`Файл «${filename}» скачан на ваш компьютер и сохранён в Proposals!`);
+    showToast(mode === 'assistant' ? `File «${filename}» downloaded to your computer and saved in Proposals!` : `Файл «${filename}» скачан на ваш компьютер и сохранён в Proposals!`);
   };
 
   // Load Assistant Proposal file back to continue editing
@@ -813,11 +824,11 @@ export function App() {
           setEdges(proposal.snapshotEdges);
           showToast(mode === 'assistant' ? `Loaded proposals from «${proposal.authorName || 'Assistant'}»` : `Загружены сохранённые ранее правки помощника «${proposal.authorName}»`);
         } else {
-          alert('Некорректный формат файла предложения правок.');
+          alert(mode === 'assistant' ? 'Invalid proposal file format.' : 'Некорректный формат файла предложения правок.');
         }
       } catch (err) {
         console.error(err);
-        alert('Ошибка при чтении файла предложения правок.');
+        alert(mode === 'assistant' ? 'Error while reading the proposal file.' : 'Ошибка при чтении файла предложения правок.');
       }
     };
     reader.readAsText(file);
@@ -869,6 +880,7 @@ export function App() {
 
       <main className="flex-1 relative w-full h-full overflow-hidden">
         <GraphCanvas
+          mode={mode}
           nodes={displayNodes}
           edges={displayEdges}
           selectedNodeId={selectedNodeId}
