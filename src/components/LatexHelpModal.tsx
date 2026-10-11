@@ -1,204 +1,283 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, Copy, Check, Sparkles, BookOpen, Search } from 'lucide-react';
 import { renderLatexToHtml } from '../utils/latexRenderer';
+import type { AppMode } from '../types/graph';
 
 interface LatexHelpModalProps {
   onClose: () => void;
   onInsertSnippet?: (snippet: string) => void;
+  /**
+   * UI language of the reference: the Assistant view is English, every other view
+   * (Student / legacy Author) keeps the original Russian wording.
+   */
+  mode?: AppMode;
+}
+
+interface LatexItem {
+  labelEn: string;
+  labelRu: string;
+  code: string;
+  descriptionEn: string;
+  descriptionRu: string;
 }
 
 interface LatexCategory {
-  title: string;
-  items: {
-    label: string;
-    code: string;
-    description: string;
-  }[];
+  titleEn: string;
+  titleRu: string;
+  items: LatexItem[];
 }
 
 const LATEX_CATEGORIES: LatexCategory[] = [
   {
-    title: 'Векторы и пространства (Vectors & Spaces)',
+    titleEn: 'Vectors & Spaces',
+    titleRu: 'Векторы и пространства (Vectors & Spaces)',
     items: [
       {
-        label: 'Пространство ℝⁿ',
+        labelEn: 'Space ℝⁿ',
+        labelRu: 'Пространство ℝⁿ',
         code: '$\\mathbb{R}^n$',
-        description: 'n-мерное евклидово пространство',
+        descriptionEn: 'n-dimensional Euclidean space',
+        descriptionRu: 'n-мерное евклидово пространство',
       },
       {
-        label: 'Комплексное пространство ℂⁿ',
+        labelEn: 'Complex space ℂⁿ',
+        labelRu: 'Комплексное пространство ℂⁿ',
         code: '$\\mathbb{C}^n$',
-        description: 'n-мерное унитарное пространство',
+        descriptionEn: 'n-dimensional unitary space',
+        descriptionRu: 'n-мерное унитарное пространство',
       },
       {
-        label: 'Матричное пространство',
+        labelEn: 'Matrix space',
+        labelRu: 'Матричное пространство',
         code: '$\\mathbb{R}^{m \\times n}$',
-        description: 'Пространство матриц размера m на n',
+        descriptionEn: 'Space of matrices of size m by n',
+        descriptionRu: 'Пространство матриц размера m на n',
       },
       {
-        label: 'Вектор-столбец',
+        labelEn: 'Column vector',
+        labelRu: 'Вектор-столбец',
         code: '$\\mathbf{x} = (x_1, x_2, \\dots, x_n)^T$',
-        description: 'Жирный вектор с транспонированием',
+        descriptionEn: 'Bold vector with transposition',
+        descriptionRu: 'Жирный вектор с транспонированием',
       },
       {
-        label: 'Стрелочный вектор',
+        labelEn: 'Arrow vector',
+        labelRu: 'Стрелочный вектор',
         code: '$\\vec{v} \\in V$',
-        description: 'Вектор со стрелкой над символом',
+        descriptionEn: 'Vector with an arrow above the symbol',
+        descriptionRu: 'Вектор со стрелкой над символом',
       },
       {
-        label: 'Нулевой вектор',
+        labelEn: 'Zero vector',
+        labelRu: 'Нулевой вектор',
         code: '$\\mathbf{0}$',
-        description: 'Жирный ноль (нулевой вектор)',
+        descriptionEn: 'Bold zero (zero vector)',
+        descriptionRu: 'Жирный ноль (нулевой вектор)',
       },
     ],
   },
   {
-    title: 'Матрицы и определители (Matrices & Determinants)',
+    titleEn: 'Matrices & Determinants',
+    titleRu: 'Матрицы и определители (Matrices & Determinants)',
     items: [
       {
-        label: 'Матрица 2×2 (круглые скобки)',
+        labelEn: '2×2 matrix (round brackets)',
+        labelRu: 'Матрица 2×2 (круглые скобки)',
         code: '$\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$',
-        description: 'pmatrix: элементы разделяются &, строки — \\\\',
+        descriptionEn: 'pmatrix: elements are separated by &, rows by \\\\',
+        descriptionRu: 'pmatrix: элементы разделяются &, строки — \\\\',
       },
       {
-        label: 'Матрица 2×2 (квадратные скобки)',
+        labelEn: '2×2 matrix (square brackets)',
+        labelRu: 'Матрица 2×2 (квадратные скобки)',
         code: '$\\begin{bmatrix} 1 & 0 \\\\ 0 & 1 \\end{bmatrix}$',
-        description: 'bmatrix: единичная или блочная матрица',
+        descriptionEn: 'bmatrix: identity or block matrix',
+        descriptionRu: 'bmatrix: единичная или блочная матрица',
       },
       {
-        label: 'Определитель матрицы (det)',
+        labelEn: 'Matrix determinant (det)',
+        labelRu: 'Определитель матрицы (det)',
         code: '$\\begin{vmatrix} a & b \\\\ c & d \\end{vmatrix}$',
-        description: 'vmatrix: вертикальные прямые линии определителя',
+        descriptionEn: 'vmatrix: vertical straight lines of the determinant',
+        descriptionRu: 'vmatrix: вертикальные прямые линии определителя',
       },
       {
-        label: 'Матрица произвольного размера',
+        labelEn: 'Matrix of arbitrary size',
+        labelRu: 'Матрица произвольного размера',
         code: '$\\begin{pmatrix} a_{11} & \\cdots & a_{1n} \\\\ \\vdots & \\ddots & \\vdots \\\\ a_{m1} & \\cdots & a_{mn} \\end{pmatrix}$',
-        description: 'Матрица с точками \\cdots, \\vdots, \\ddots',
+        descriptionEn: 'Matrix with dots \\cdots, \\vdots, \\ddots',
+        descriptionRu: 'Матрица с точками \\cdots, \\vdots, \\ddots',
       },
       {
-        label: 'Вектор-столбец 3×1',
+        labelEn: 'Column vector 3×1',
+        labelRu: 'Вектор-столбец 3×1',
         code: '$\\begin{pmatrix} x_1 \\\\ x_2 \\\\ x_3 \\end{pmatrix}$',
-        description: 'Столбец координат',
+        descriptionEn: 'Column of coordinates',
+        descriptionRu: 'Столбец координат',
       },
     ],
   },
   {
-    title: 'Операторы линейной алгебры (Linear Algebra Operators)',
+    titleEn: 'Linear Algebra Operators',
+    titleRu: 'Операторы линейной алгебры (Linear Algebra Operators)',
     items: [
       {
-        label: 'Определитель det(A)',
+        labelEn: 'Determinant det(A)',
+        labelRu: 'Определитель det(A)',
         code: '$\\det(A)$',
-        description: 'Определитель квадратной матрицы',
+        descriptionEn: 'Determinant of a square matrix',
+        descriptionRu: 'Определитель квадратной матрицы',
       },
       {
-        label: 'Ранг матрицы rank(A)',
+        labelEn: 'Matrix rank rank(A)',
+        labelRu: 'Ранг матрицы rank(A)',
         code: '$\\operatorname{rank}(A)$',
-        description: 'Ранг матрицы или оператора',
+        descriptionEn: 'Rank of a matrix or of an operator',
+        descriptionRu: 'Ранг матрицы или оператора',
       },
       {
-        label: 'След матрицы tr(A)',
+        labelEn: 'Matrix trace tr(A)',
+        labelRu: 'След матрицы tr(A)',
         code: '$\\operatorname{tr}(A)$',
-        description: 'Сумма диагональных элементов',
+        descriptionEn: 'Sum of the diagonal elements',
+        descriptionRu: 'Сумма диагональных элементов',
       },
       {
-        label: 'Ядро и образ оператора',
+        labelEn: 'Kernel and image of an operator',
+        labelRu: 'Ядро и образ оператора',
         code: '$\\operatorname{ker}(T), \\operatorname{im}(T)$',
-        description: 'Kernel (ядро) и Image (образ)',
+        descriptionEn: 'Kernel and Image',
+        descriptionRu: 'Kernel (ядро) и Image (образ)',
       },
       {
-        label: 'Линейная оболочка span',
+        labelEn: 'Linear span',
+        labelRu: 'Линейная оболочка span',
         code: '$\\operatorname{span}(\\mathbf{v}_1, \\mathbf{v}_2)$',
-        description: 'Множество всех линейных комбинаций',
+        descriptionEn: 'Set of all linear combinations',
+        descriptionRu: 'Множество всех линейных комбинаций',
       },
       {
-        label: 'Размерность dim(V)',
+        labelEn: 'Dimension dim(V)',
+        labelRu: 'Размерность dim(V)',
         code: '$\\dim(V) = n$',
-        description: 'Размерность векторного пространства',
+        descriptionEn: 'Dimension of a vector space',
+        descriptionRu: 'Размерность векторного пространства',
       },
     ],
   },
   {
-    title: 'Собственные значения (Eigenvalues & Eigenvectors)',
+    titleEn: 'Eigenvalues & Eigenvectors',
+    titleRu: 'Собственные значения (Eigenvalues & Eigenvectors)',
     items: [
       {
-        label: 'Уравнение на собственные векторы',
+        labelEn: 'Eigenvector equation',
+        labelRu: 'Уравнение на собственные векторы',
         code: '$A\\mathbf{x} = \\lambda \\mathbf{x}$',
-        description: 'Основное уравнение спектральной теории',
+        descriptionEn: 'The main equation of spectral theory',
+        descriptionRu: 'Основное уравнение спектральной теории',
       },
       {
-        label: 'Характеристическое уравнение',
+        labelEn: 'Characteristic equation',
+        labelRu: 'Характеристическое уравнение',
         code: '$\\det(A - \\lambda I) = 0$',
-        description: 'Для нахождения спектра матрицы',
+        descriptionEn: 'Used to find the spectrum of a matrix',
+        descriptionRu: 'Для нахождения спектра матрицы',
       },
       {
-        label: 'Спектр матрицы',
+        labelEn: 'Spectrum of a matrix',
+        labelRu: 'Спектр матрицы',
         code: '$\\sigma(A) = \\{\\lambda_1, \\dots, \\lambda_n\\}$',
-        description: 'Множество собственных значений',
+        descriptionEn: 'Set of eigenvalues',
+        descriptionRu: 'Множество собственных значений',
       },
       {
-        label: 'Спектральное разложение',
+        labelEn: 'Spectral decomposition',
+        labelRu: 'Спектральное разложение',
         code: '$A = Q \\Lambda Q^T$',
-        description: 'Диагонализация симметричной матрицы',
+        descriptionEn: 'Diagonalization of a symmetric matrix',
+        descriptionRu: 'Диагонализация симметричной матрицы',
       },
     ],
   },
   {
-    title: 'Степени, дроби, нормы и скалярные произведения',
+    titleEn: 'Powers, Fractions, Norms & Scalar Products',
+    titleRu: 'Степени, дроби, нормы и скалярные произведения',
     items: [
       {
-        label: 'Транспонирование и обратная',
+        labelEn: 'Transposition and inverse',
+        labelRu: 'Транспонирование и обратная',
         code: '$A^T, A^{-1}, A^*$',
-        description: 'Транспонированная, обратная и сопряженная матрицы',
+        descriptionEn: 'Transposed, inverse and conjugate matrices',
+        descriptionRu: 'Транспонированная, обратная и сопряженная матрицы',
       },
       {
-        label: 'Дробь',
+        labelEn: 'Fraction',
+        labelRu: 'Дробь',
         code: '$\\frac{1}{2}$',
-        description: 'Простая дробь: \\frac{числитель}{знаменатель}',
+        descriptionEn: 'Simple fraction: \\frac{numerator}{denominator}',
+        descriptionRu: 'Простая дробь: \\frac{числитель}{знаменатель}',
       },
       {
-        label: 'Частная производная',
+        labelEn: 'Partial derivative',
+        labelRu: 'Частная производная',
         code: '$\\frac{\\partial L}{\\partial w_i}$',
-        description: 'Символ частной производной \\partial',
+        descriptionEn: 'Partial derivative symbol \\partial',
+        descriptionRu: 'Символ частной производной \\partial',
       },
       {
-        label: 'Норма вектора (длина)',
+        labelEn: 'Vector norm (length)',
+        labelRu: 'Норма вектора (длина)',
         code: '$\\|\\mathbf{x}\\| = \\sqrt{\\sum_{i=1}^n x_i^2}$',
-        description: 'Евклидова норма вектора',
+        descriptionEn: 'Euclidean norm of a vector',
+        descriptionRu: 'Евклидова норма вектора',
       },
       {
-        label: 'Скалярное произведение',
+        labelEn: 'Scalar product',
+        labelRu: 'Скалярное произведение',
         code: '$\\langle \\mathbf{u}, \\mathbf{v} \\rangle = \\mathbf{u}^T \\mathbf{v}$',
-        description: 'Угловые скобки \\langle и \\rangle',
+        descriptionEn: 'Angle brackets \\langle and \\rangle',
+        descriptionRu: 'Угловые скобки \\langle и \\rangle',
       },
       {
-        label: 'Ортогональность',
+        labelEn: 'Orthogonality',
+        labelRu: 'Ортогональность',
         code: '$\\mathbf{u} \\perp \\mathbf{v} \\iff \\langle \\mathbf{u}, \\mathbf{v} \\rangle = 0$',
-        description: 'Символ ортогональности \\perp',
+        descriptionEn: 'Orthogonality symbol \\perp',
+        descriptionRu: 'Символ ортогональности \\perp',
       },
     ],
   },
   {
-    title: 'Греческие буквы и математические символы',
+    titleEn: 'Greek Letters & Mathematical Symbols',
+    titleRu: 'Греческие буквы и математические символы',
     items: [
       {
-        label: 'Греческие буквы (строчные)',
+        labelEn: 'Greek letters (lowercase)',
+        labelRu: 'Греческие буквы (строчные)',
         code: '$\\alpha, \\beta, \\gamma, \\delta, \\lambda, \\sigma, \\theta, \\mu, \\omega$',
-        description: 'Альфа, бета, гамма, дельта, лямбда, сигма, тета...',
+        descriptionEn: 'Alpha, beta, gamma, delta, lambda, sigma, theta...',
+        descriptionRu: 'Альфа, бета, гамма, дельта, лямбда, сигма, тета...',
       },
       {
-        label: 'Греческие буквы (заглавные)',
+        labelEn: 'Greek letters (uppercase)',
+        labelRu: 'Греческие буквы (заглавные)',
         code: '$\\Delta, \\Sigma, \\Omega, \\Lambda, \\Phi$',
-        description: 'Заглавные буквы для матриц и операторов',
+        descriptionEn: 'Uppercase letters for matrices and operators',
+        descriptionRu: 'Заглавные буквы для матриц и операторов',
       },
       {
-        label: 'Стрелки и логические связки',
+        labelEn: 'Arrows and logical connectives',
+        labelRu: 'Стрелки и логические связки',
         code: '$\\to, \\Rightarrow, \\iff, \\forall, \\exists$',
-        description: 'Стрелка, следование, эквивалентность, кванторы',
+        descriptionEn: 'Arrow, implication, equivalence, quantifiers',
+        descriptionRu: 'Стрелка, следование, эквивалентность, кванторы',
       },
       {
-        label: 'Сравнения и включения',
+        labelEn: 'Comparisons and inclusions',
+        labelRu: 'Сравнения и включения',
         code: '$\\approx, \\neq, \\leq, \\geq, \\in, \\notin, \\subset, \\subseteq$',
-        description: 'Приближенно, не равно, меньше-равно, принадлежит...',
+        descriptionEn: 'Approximately, not equal, less-or-equal, belongs to...',
+        descriptionRu: 'Приближенно, не равно, меньше-равно, принадлежит...',
       },
     ],
   },
@@ -207,9 +286,33 @@ const LATEX_CATEGORIES: LatexCategory[] = [
 export const LatexHelpModal: React.FC<LatexHelpModalProps> = ({
   onClose,
   onInsertSnippet,
+  mode = 'student',
 }) => {
+  // Assistant view is fully English; all other views keep the original Russian reference.
+  const isEnglish = mode === 'assistant';
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Categories localized for the active UI language (LaTeX code itself is language independent)
+  const localizedCategories = useMemo(
+    () =>
+      LATEX_CATEGORIES.map(cat => ({
+        title: isEnglish ? cat.titleEn : cat.titleRu,
+        items: cat.items.map(item => ({
+          label: isEnglish ? item.labelEn : item.labelRu,
+          description: isEnglish ? item.descriptionEn : item.descriptionRu,
+          code: item.code,
+          searchHaystack: [
+            isEnglish ? item.labelEn : item.labelRu,
+            isEnglish ? item.descriptionEn : item.descriptionRu,
+            item.code,
+          ]
+            .join(' ')
+            .toLowerCase(),
+        })),
+      })),
+    [isEnglish]
+  );
 
   const handleCopyOrInsert = (code: string) => {
     if (onInsertSnippet) {
@@ -222,15 +325,10 @@ export const LatexHelpModal: React.FC<LatexHelpModalProps> = ({
     }, 2000);
   };
 
-  const filteredCategories = LATEX_CATEGORIES.map(cat => {
+  const filteredCategories = localizedCategories.map(cat => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return cat;
-    const items = cat.items.filter(
-      item =>
-        item.label.toLowerCase().includes(term) ||
-        item.code.toLowerCase().includes(term) ||
-        item.description.toLowerCase().includes(term)
-    );
+    const items = cat.items.filter(item => item.searchHaystack.includes(term));
     return { ...cat, items };
   }).filter(cat => cat.items.length > 0);
 
@@ -245,13 +343,15 @@ export const LatexHelpModal: React.FC<LatexHelpModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm text-slate-100 flex items-center gap-2">
-                Справка по вводу формул KaTeX / LaTeX
+                {isEnglish ? 'KaTeX / LaTeX Formula Input Reference' : 'Справка по вводу формул KaTeX / LaTeX'}
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-950 border border-sky-700 text-sky-300 font-mono">
                   $math$
                 </span>
               </h3>
               <p className="text-[11px] text-slate-400">
-                Кликните по любой карточке формулы, чтобы автоматически скопировать и вставить её в поле ввода
+                {isEnglish
+                  ? 'Click any formula card to automatically copy it and insert it into the input field'
+                  : 'Кликните по любой карточке формулы, чтобы автоматически скопировать и вставить её в поле ввода'}
               </p>
             </div>
           </div>
@@ -268,13 +368,34 @@ export const LatexHelpModal: React.FC<LatexHelpModalProps> = ({
         <div className="p-4 border-b border-slate-800/80 bg-slate-950/40 space-y-3">
           <div className="p-3 bg-sky-950/30 border border-sky-900/50 rounded-xl text-[11px] text-slate-300 leading-relaxed space-y-1">
             <div className="font-semibold text-sky-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-sky-400" /> Основные правила синтаксиса KaTeX в табличках:
+              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+              {isEnglish
+                ? 'Basic rules of KaTeX syntax in the note cards:'
+                : 'Основные правила синтаксиса KaTeX в табличках:'}
             </div>
             <ul className="list-disc list-inside text-slate-400 space-y-0.5">
-              <li>Формула обязательно обрамляется знаками доллара: <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">$...$</code>.</li>
-              <li>Внутри матриц строки разделяются двойным слэшем <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">\\\\</code>, а элементы — знаком <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">&</code>.</li>
-              <li>Для текста внутри формулы используйте <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">\text&#123;текст&#125;</code> или <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">\operatorname&#123;rank&#125;</code>.</li>
-              <li>Вместе с формулами поддерживаются: жирный шрифт <code className="text-amber-200 bg-slate-900 px-1 py-0.2 rounded font-mono">**текст**</code> и цветные квадратики <code className="text-amber-200 bg-slate-900 px-1 py-0.2 rounded font-mono">🟨 🟦 🟩</code>.</li>
+              <li>
+                {isEnglish ? 'A formula must be wrapped in dollar signs: ' : 'Формула обязательно обрамляется знаками доллара: '}
+                <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">$...$</code>.
+              </li>
+              <li>
+                {isEnglish ? 'Inside matrices, rows are separated by a double slash ' : 'Внутри матриц строки разделяются двойным слэшем '}
+                <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">\\</code>
+                {isEnglish ? ', and elements by the ' : ', а элементы — знаком '}
+                <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">&</code>.
+              </li>
+              <li>
+                {isEnglish ? 'For text inside a formula use ' : 'Для текста внутри формулы используйте '}
+                <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">\text&#123;{isEnglish ? 'text' : 'текст'}&#125;</code>
+                {isEnglish ? ' or ' : ' или '}
+                <code className="text-sky-200 bg-slate-900 px-1 py-0.2 rounded font-mono">\operatorname&#123;rank&#125;</code>.
+              </li>
+              <li>
+                {isEnglish ? 'Supported together with formulas: bold text ' : 'Вместе с формулами поддерживаются: жирный шрифт '}
+                <code className="text-amber-200 bg-slate-900 px-1 py-0.2 rounded font-mono">**{isEnglish ? 'text' : 'текст'}**</code>
+                {isEnglish ? ' and colored squares ' : ' и цветные квадратики '}
+                <code className="text-amber-200 bg-slate-900 px-1 py-0.2 rounded font-mono">🟨 🟦 🟩</code>.
+              </li>
             </ul>
           </div>
 
@@ -282,7 +403,11 @@ export const LatexHelpModal: React.FC<LatexHelpModalProps> = ({
             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Поиск по формулам (матрица, вектор, собственный, rank, det, R^n)..."
+              placeholder={
+                isEnglish
+                  ? 'Search formulas (matrix, vector, eigenvalue, rank, det, R^n)...'
+                  : 'Поиск по формулам (матрица, вектор, собственный, rank, det, R^n)...'
+              }
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 shadow-inner"
@@ -327,10 +452,12 @@ export const LatexHelpModal: React.FC<LatexHelpModalProps> = ({
                               ? 'bg-emerald-950 border border-emerald-600 text-emerald-300'
                               : 'bg-slate-900 border border-slate-700 text-slate-400 group-hover:text-sky-300 group-hover:border-sky-700'
                           }`}
-                          title="Скопировать / Вставить"
+                          title={isEnglish ? 'Copy / Insert' : 'Скопировать / Вставить'}
                         >
                           {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                          <span className="font-mono">{isCopied ? 'Вставлено' : 'Вставить'}</span>
+                          <span className="font-mono">
+                            {isCopied ? (isEnglish ? 'Inserted' : 'Вставлено') : (isEnglish ? 'Insert' : 'Вставить')}
+                          </span>
                         </button>
                       </div>
 
@@ -352,7 +479,9 @@ export const LatexHelpModal: React.FC<LatexHelpModalProps> = ({
 
           {filteredCategories.length === 0 && (
             <div className="text-center py-12 text-slate-500 italic">
-              Формулы по запросу «{searchTerm}» не найдены.
+              {isEnglish
+                ? `No formulas found for the query «${searchTerm}».`
+                : `Формулы по запросу «${searchTerm}» не найдены.`}
             </div>
           )}
         </div>
@@ -363,7 +492,7 @@ export const LatexHelpModal: React.FC<LatexHelpModalProps> = ({
             onClick={onClose}
             className="px-5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow transition"
           >
-            Закрыть
+            {isEnglish ? 'Close' : 'Закрыть'}
           </button>
         </div>
       </div>

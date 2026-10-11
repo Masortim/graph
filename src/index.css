@@ -15,6 +15,29 @@
   }
 }
 
+/* Browser mouse-gesture guard.
+   The class is added to <html> for Assistant mode only (see src/utils/browserGestureGuard.ts),
+   so every other mode keeps its original browser behaviour. */
+html.browser-gesture-guard,
+html.browser-gesture-guard body {
+  /* No swipe / overscroll back-forward navigation and no rubber-band scrolling */
+  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
+  /* No double tap zoom, no long press callout menu, no native dragging of the UI */
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+
+html.browser-gesture-guard canvas,
+html.browser-gesture-guard img,
+html.browser-gesture-guard svg,
+html.browser-gesture-guard a,
+html.browser-gesture-guard button {
+  -webkit-user-drag: none;
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

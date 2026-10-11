@@ -339,7 +339,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
         <button
           onClick={onClose}
           className="text-slate-400 hover:text-slate-200 p-1 hover:bg-slate-800 rounded-lg transition shrink-0"
-          title="Закрыть"
+          title={isAssistant ? 'Close' : 'Закрыть'}
         >
           <X className="w-4 h-4" />
         </button>
@@ -424,7 +424,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                 value={color}
                 onChange={e => handleColorChange(e.target.value)}
                 className="w-5 h-5 rounded cursor-pointer bg-transparent border-0 ml-auto"
-                title="Произвольный цвет"
+                title={isAssistant ? 'Custom color' : 'Произвольный цвет'}
               />
             </div>
           </div>
@@ -472,7 +472,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                   onClick={handleZoomBadgeOut}
                   disabled={badgeScale <= 1.0}
                   className="text-slate-400 hover:text-sky-300 disabled:opacity-30 transition p-0.5"
-                  title="Уменьшить (-25%)"
+                  title={isAssistant ? 'Zoom out (-25%)' : 'Уменьшить (-25%)'}
                 >
                   <MinusCircle className="w-3.5 h-3.5" />
                 </button>
@@ -484,7 +484,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                   onClick={handleZoomBadgeIn}
                   disabled={badgeScale >= 3.0}
                   className="text-slate-400 hover:text-sky-300 disabled:opacity-30 transition p-0.5"
-                  title="Увеличить (+25%)"
+                  title={isAssistant ? 'Zoom in (+25%)' : 'Увеличить (+25%)'}
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                 </button>
@@ -495,7 +495,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                   type="button"
                   onClick={() => setIsEditingInfo(true)}
                   className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                  title="Редактировать карточку"
+                  title={isAssistant ? 'Edit card' : 'Редактировать карточку'}
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                 </button>
@@ -562,14 +562,14 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                   onClick={() => setIsEditingInfo(false)}
                   className="px-2.5 py-1 text-slate-400 hover:text-slate-200"
                 >
-                  Отмена
+                  {isAssistant ? 'Cancel' : 'Отмена'}
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveInfo}
                   className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-medium flex items-center gap-1 shadow"
                 >
-                  <Check className="w-3.5 h-3.5" /> Сохранить
+                  <Check className="w-3.5 h-3.5" /> {isAssistant ? 'Save' : 'Сохранить'}
                 </button>
               </div>
             </div>
@@ -629,6 +629,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
 
       {showLatexHelp && (
         <LatexHelpModal
+          mode={mode}
           onClose={() => setShowLatexHelp(false)}
           onInsertSnippet={snippet => {
             insertSnippet(snippet);
