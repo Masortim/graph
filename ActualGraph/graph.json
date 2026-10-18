@@ -1,8 +1,8 @@
 {
   "version": "2.4.0",
   "name": "Linear Algebra NSU - Lectures",
-  "createdAt": "2026-10-18T13:14:44.273Z",
-  "updatedAt": "2026-10-18T13:14:44.273Z",
+  "createdAt": "2026-10-18T14:33:16.786Z",
+  "updatedAt": "2026-10-18T14:33:16.786Z",
   "nodes": [
     {
       "id": "sec_2_normal_operators",
@@ -3677,9 +3677,9 @@
       "isCustomOrEdited": true,
       "sizeLevel": 7,
       "infoBadge": {
-        "content": "● Linear combination ● Linear independence ● Basis ● Coordinates ● Dimension ● Carteisan coordinate system ● Affinne coordinate system ● Linear span ● Linear subspace\n\n🟦 Complexity 6/10",
+        "content": "● Linear combination ● Linear independence ● Basis \n● Coordinates ● Dimension ● Carteisan coordinate system \n● Affinne coordinate system ● Linear span ● Linear subspace \n🟦 Complexity 6/10",
         "createdAt": "2030-09-28T23:24:10.257Z",
-        "updatedAt": "2030-09-28T23:24:10.257Z",
+        "updatedAt": "2026-10-18T14:30:32.323Z",
         "scale": 1
       }
     },
@@ -3840,9 +3840,9 @@
       "isCustomOrEdited": true,
       "sizeLevel": 7,
       "infoBadge": {
-        "content": "●Linear space of linear equations ● Matrix of a system of linear equations ● Rank of a matrix ● Basis of a linear span ● Row-echelon form of a matrix ● Solving a system of linear equations via row-echelon form of its matrix ● Solution space\n\n🟦 Complexity 8/10",
+        "content": "●Linear space of linear equations ● Matrix of \na system of linear equations ● Rank of a matrix \n● Basis of a linear span ● Row-echelon form \n● Solving a system of linear equations via row-echelon \nform ● Solution space 🟦 Complexity 8/10",
         "createdAt": "2030-09-28T23:29:11.946Z",
-        "updatedAt": "2030-09-28T23:29:11.946Z",
+        "updatedAt": "2026-10-18T14:31:57.973Z",
         "scale": 1
       }
     },
@@ -3987,9 +3987,9 @@
       "isCustomOrEdited": true,
       "sizeLevel": 7,
       "infoBadge": {
-        "content": "● Vector ● Scalar ● Linear space ● Addition ● Scalar multiplication ● Linear space of matrices ● Isomorphism ● Polynomial ● Root ● Multiplicity ● Linear space of polynomials ● Complex numbers ● Imaginary part ● Real part ● Imgainary unit ● Complex conjugate ● Complex operations ● Trigonometric form ● Linear space over complex numbers\n\n🟦 Complexity 7/10",
+        "content": "● Vector ● Scalar ● Linear space ● Addition ● Scalar multiplication \n● Linear space of matrices ● Isomorphism ● Polynomial ● Root \n● Multiplicity ● Linear space of polynomials ● Complex numbers \n● Imaginary part ● Real part ● Imaginary unit ● Complex conjugate \n● Complex operations ● Trigonometric form \n● Linear space over complex numbers 🟦 Complexity 7/10",
         "createdAt": "2030-09-28T23:20:25.100Z",
-        "updatedAt": "2030-09-28T23:20:25.100Z",
+        "updatedAt": "2026-10-18T14:28:34.272Z",
         "scale": 1
       }
     },
@@ -4184,9 +4184,9 @@
       "isCustomOrEdited": true,
       "sizeLevel": 7,
       "infoBadge": {
-        "content": "● Linear subspaces ● Homogenious system of linear equations ● Subsets and linear subspaces   ● Subspaces of matrices and polynomials ● Subspace operations ● Intersection ● Union ● Sum ● Direct sum ● Cartesian product ● Linear span of basis vectors ● Invariant subspace\n\n🟦 Complexity 8/10",
+        "content": "● Linear subspaces ● Homogenious system \nof linear equations ● Subsets and linear subspaces   \n● Subspaces of matrices and polynomials \n● Subspace operations ● Intersection ● Union \n● Sum ● Direct sum ● Cartesian product \n● Linear span of basis vectors ● Invariant subspace\n🟦 Complexity 8/10",
         "createdAt": "2030-10-01T19:14:52.213Z",
-        "updatedAt": "2030-10-01T19:20:02.200Z",
+        "updatedAt": "2026-10-18T14:32:52.795Z",
         "scale": 1
       }
     },
@@ -6368,9 +6368,9 @@
       "deletedEdgeKeys": [],
       "isCustomOrEdited": true,
       "infoBadge": {
-        "content": "● Systems of linear equations and their interpretations  ● Course review ● Knowledge graph\n\n🟦 Complexity: 2/10",
+        "content": "● Systems of linear equations and their interpretations\n ● Course review ● Knowledge graph 🟦 Complexity: 2/10\n\n🟨Gao Hongrui 🟨 \nHere is the system of equations I constructed: \n$$\\left \\{ \\begin{array}{l}2x+y=5\\\\x-y=1 \\end{array}\\right .$$\n**Linear combination of vectors**\n$$ x\\begin{pmatrix}2\\\\ 1\\end{pmatrix}+y\\begin{pmatrix}1\\\\ -1\\end{pmatrix}=\\begin{pmatrix}5\\\\ 1\\end{pmatrix} $$\n我认为这是是向量和更普遍的写法，\n换了一种写向量的形式，他是竖过来用矩阵写的向量，\nx,y依旧表示两个参数，用这两个参数来对向量进行缩放再相加，\n得到目标向量，这就是向量的线性组合。\nI think this is a more general form of vector addition,\n just using a different way to represent vectors. \nHere the vectors are written vertically as column vectors, \nand $x$ and $y$ are still two scalars used \nto scale the vectors before adding them together \nto obtain the target vector. This is the linear\n combination of vectors.\n**Matrix**\n$$ \\begin{pmatrix}2 & 1\\\\ 1 & -1\\end{pmatrix}\\begin{pmatrix}x\\\\ y\\end{pmatrix}=\\begin{pmatrix}5\\\\ 1\\end{pmatrix} $$\n这是把方程组写成了矩阵的形式，将方程组视为一个矩阵\n$A$ 与未知向量 $x$ 的乘法运算。\n它代表了通过矩阵运算将未知向量映射为已知结果向量的关系。\nThis form views the system as a multiplication operation \nbetween a matrix $A$ and an unknown vector $x$. \nIt represents the relationship where the unknown vector \nis mapped to a known result vector through matrix operation.\n**Vector transformation**\n$$ A=\\begin{pmatrix}2 & 1\\\\ 1 & -1\\end{pmatrix},\\quad T:\\, \\begin{pmatrix}x\\\\ y\\end{pmatrix}\\longrightarrow\\begin{pmatrix}5\\\\ 1\\end{pmatrix} $$\nT代表一种转换方式，就像函数的f(x),我把它理解成一个机器，\n它的运行代码就是A，你给他喂食了一个$\\begin{pmatrix}x\\\\ y\\end{pmatrix}$ \n他吐出来了一个 $\\begin{pmatrix}5\\\\ 1\\end{pmatrix}$，\n那我们就可以根据这个来知道给他喂了什么。\n$T$ represents a transformation, much like the \n$f$ in a function $f(x)$. I understand it as a \nmachine whose underlying code is the matrix $A$ . \nYou feed it a vector $\\begin{pmatrix}x\\\\ y\\end{pmatrix}$ , and it spits out \na vector $\\begin{pmatrix}5\\\\ 1\\end{pmatrix}$. Based on this output, we can \nthen deduce what was fed into it. 🟩 It is possible \nonly for isomorphism-type transformation. 🟩 \n",
         "createdAt": "2030-10-01T19:08:09.767Z",
-        "updatedAt": "2030-10-01T19:08:09.767Z",
+        "updatedAt": "2026-10-18T14:17:36.291Z",
         "scale": 1
       }
     }
