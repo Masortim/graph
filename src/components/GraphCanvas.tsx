@@ -120,6 +120,31 @@ function getBezierMidPoint(x1: number, y1: number, cx: number, cy: number, x2: n
   return { x, y };
 }
 
+function constrainInfoCardBodyHeight(
+  card: HTMLElement,
+  body: HTMLElement | null,
+  displayHeight: number,
+  canvasScale: number,
+  cardPadding: number,
+  badgeScale: number,
+): number {
+  const maxCardHeight = Math.max(1, (displayHeight - 16) / canvasScale);
+  card.style.maxHeight = `${maxCardHeight}px`;
+
+  const header = card.querySelector<HTMLElement>('.info-card-overlay-header');
+  if (body && header) {
+    const headerMargin = 8; // Tailwind's mb-2 on the card header.
+    const verticalBorders = 3 * badgeScale;
+    const bodyMaxHeight = Math.max(
+      1,
+      maxCardHeight - cardPadding * 2 - verticalBorders - header.offsetHeight - headerMargin,
+    );
+    body.style.maxHeight = `${bodyMaxHeight}px`;
+  }
+
+  return card.offsetHeight * canvasScale;
+}
+
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   mode = 'student',
   nodes,
@@ -735,6 +760,19 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         const cardX = targetNode.x + nodeRadius + 16;
         const cardY = targetNode.y - 20;
+        const cardEl = document.getElementById(`info-card-overlay-node-${targetNode.id}`) as HTMLElement | null;
+        const screenX = cardX * scale + panX;
+        let screenY = cardY * scale + panY;
+        let visibleCardY = cardY;
+
+        if (cardEl) {
+          const bodyEl = document.getElementById(`info-card-overlay-node-body-${targetNode.id}`) as HTMLElement | null;
+          const visualCardHeight = constrainInfoCardBodyHeight(cardEl, bodyEl, displayHeight, scale, cardPadding, scaleMul);
+          const minScreenY = 8;
+          const maxScreenY = Math.max(minScreenY, displayHeight - visualCardHeight - 8);
+          screenY = Math.min(Math.max(screenY, minScreenY), maxScreenY);
+          visibleCardY = (screenY - panY) / scale;
+        }
 
         ctx.save();
         ctx.strokeStyle = targetNode.color;
@@ -742,14 +780,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.setLineDash([3 * scaleMul, 2 * scaleMul]);
         ctx.beginPath();
         ctx.moveTo(targetNode.x + nodeRadius * 0.7, targetNode.y - nodeRadius * 0.7);
-        ctx.lineTo(cardX, cardY + cardPadding + headerFontSize / 2);
+        ctx.lineTo(cardX, visibleCardY + cardPadding + headerFontSize / 2);
         ctx.stroke();
         ctx.restore();
 
-        const cardEl = document.getElementById(`info-card-overlay-node-${targetNode.id}`);
         if (cardEl) {
-          const screenX = cardX * scale + panX;
-          const screenY = cardY * scale + panY;
           cardEl.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${scale})`;
         }
       });
@@ -793,6 +828,19 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         const cardX = midPt.x + 12;
         const cardY = midPt.y - 12;
+        const cardEl = document.getElementById(`info-card-overlay-edge-${targetEdge.id}`) as HTMLElement | null;
+        const screenX = cardX * scale + panX;
+        let screenY = cardY * scale + panY;
+        let visibleCardY = cardY;
+
+        if (cardEl) {
+          const bodyEl = document.getElementById(`info-card-overlay-edge-body-${targetEdge.id}`) as HTMLElement | null;
+          const visualCardHeight = constrainInfoCardBodyHeight(cardEl, bodyEl, displayHeight, scale, cardPadding, scaleMul);
+          const minScreenY = 8;
+          const maxScreenY = Math.max(minScreenY, displayHeight - visualCardHeight - 8);
+          screenY = Math.min(Math.max(screenY, minScreenY), maxScreenY);
+          visibleCardY = (screenY - panY) / scale;
+        }
 
         ctx.save();
         ctx.strokeStyle = edgeColor;
@@ -800,14 +848,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.setLineDash([3 * scaleMul, 2 * scaleMul]);
         ctx.beginPath();
         ctx.moveTo(midPt.x, midPt.y);
-        ctx.lineTo(cardX, cardY + cardPadding + headerFontSize / 2);
+        ctx.lineTo(cardX, visibleCardY + cardPadding + headerFontSize / 2);
         ctx.stroke();
         ctx.restore();
 
-        const cardEl = document.getElementById(`info-card-overlay-edge-${targetEdge.id}`);
         if (cardEl) {
-          const screenX = cardX * scale + panX;
-          const screenY = cardY * scale + panY;
           cardEl.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${scale})`;
         }
       });
@@ -1219,6 +1264,43 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     </div>
   );
 
+  const scrollCardContent = (bodyId: string, direction: -1 | 1) => {
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    const scrollDistance = Math.max(64, body.clientHeight * 0.75);
+    body.scrollBy({ top: direction * scrollDistance, behavior: 'smooth' });
+  };
+
+  const renderCardScrollButtons = (bodyId: string) => (
+    <>
+      <button
+        type="button"
+        onClick={() => scrollCardContent(bodyId, -1)}
+        className="w-6 h-6 inline-flex items-center justify-center rounded-md bg-slate-800/90 border border-slate-700 text-sky-300 hover:text-white hover:bg-sky-900/80 transition"
+        title={isAssistant ? 'Scroll card content up' : 'Прокрутить содержимое вверх'}
+        aria-label={isAssistant ? 'Scroll card content up' : 'Прокрутить содержимое вверх'}
+        aria-controls={bodyId}
+      >
+        <span aria-hidden="true" className="text-[10px] leading-none">▲</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => scrollCardContent(bodyId, 1)}
+        className="w-6 h-6 inline-flex items-center justify-center rounded-md bg-slate-800/90 border border-slate-700 text-sky-300 hover:text-white hover:bg-sky-900/80 transition"
+        title={isAssistant ? 'Scroll card content down' : 'Прокрутить содержимое вниз'}
+        aria-label={isAssistant ? 'Scroll card content down' : 'Прокрутить содержимое вниз'}
+        aria-controls={bodyId}
+      >
+        <span aria-hidden="true" className="text-[10px] leading-none">▼</span>
+      </button>
+    </>
+  );
+
+  const getMaxCardHeight = () => {
+    const viewportHeight = canvasRef.current?.clientHeight || window.innerHeight;
+    return Math.max(1, (viewportHeight - 16) / Math.max(transform.k, 0.1));
+  };
+
   return (
     <div
       ref={containerRef}
@@ -1265,6 +1347,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               style={{
                 // Intrinsic sizing lets the longest content line (or the title) determine width.
                 width: 'max-content',
+                maxHeight: `${getMaxCardHeight()}px`,
+                display: 'flex',
+                flexDirection: 'column',
                 backgroundColor: 'rgba(10, 15, 29, 0.94)',
                 border: `1.5px solid ${targetNode.color || '#38bdf8'}`,
                 padding: `${cardPadding}px`,
@@ -1273,7 +1358,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               }}
             >
               {renderHeaderWidthProbes([headerTitle], headerFontSize)}
-              <div className="flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800">
+              <div className="info-card-overlay-header flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800 shrink-0">
                 <div
                   className="font-bold tracking-wide select-text leading-tight whitespace-nowrap"
                   style={{
@@ -1283,19 +1368,26 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 >
                   {headerTitle}
                 </div>
-                {isPinned && (
-                  <button
-                    type="button"
-                    onClick={() => onTogglePinNodeBadge(targetNode.id)}
-                    className="text-slate-400 hover:text-white p-0.5 rounded transition hover:bg-slate-800"
-                    title={isAssistant ? 'Unpin card' : 'Открепить карточку'}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  {renderCardScrollButtons(`info-card-overlay-node-body-${targetNode.id}`)}
+                  {isPinned && (
+                    <button
+                      type="button"
+                      onClick={() => onTogglePinNodeBadge(targetNode.id)}
+                      className="w-6 h-6 inline-flex items-center justify-center text-slate-400 hover:text-white rounded-md transition hover:bg-slate-800"
+                      title={isAssistant ? 'Unpin card' : 'Открепить карточку'}
+                      aria-label={isAssistant ? 'Unpin card' : 'Открепить карточку'}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="text-slate-200 select-text">
+              <div
+                id={`info-card-overlay-node-body-${targetNode.id}`}
+                className="text-slate-200 select-text min-h-0 flex-none overflow-y-auto overscroll-contain pr-1"
+              >
                 {renderMarkdownFormatted(badgeRawContent, bodyFontSize, Math.round(bodyFontSize * 1.45))}
               </div>
             </div>
@@ -1334,6 +1426,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               style={{
                 // Intrinsic sizing lets the longest content line (or either localized title) determine width.
                 width: 'max-content',
+                maxHeight: `${getMaxCardHeight()}px`,
+                display: 'flex',
+                flexDirection: 'column',
                 backgroundColor: 'rgba(10, 15, 29, 0.94)',
                 border: `1.5px solid ${edgeColor}`,
                 padding: `${cardPadding}px`,
@@ -1342,7 +1437,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               }}
             >
               {renderHeaderWidthProbes([headerTitleEn, headerTitleCn], headerFontSize)}
-              <div className="flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800">
+              <div className="info-card-overlay-header flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800 shrink-0">
                 <div
                   className="font-bold tracking-wide select-text leading-tight whitespace-nowrap"
                   style={{
@@ -1352,19 +1447,26 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 >
                   {headerTitle}
                 </div>
-                {isPinned && (
-                  <button
-                    type="button"
-                    onClick={() => onTogglePinEdgeBadge(targetEdge.id)}
-                    className="text-slate-400 hover:text-white p-0.5 rounded transition hover:bg-slate-800"
-                    title={isAssistant ? 'Unpin card' : 'Открепить карточку'}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  {renderCardScrollButtons(`info-card-overlay-edge-body-${targetEdge.id}`)}
+                  {isPinned && (
+                    <button
+                      type="button"
+                      onClick={() => onTogglePinEdgeBadge(targetEdge.id)}
+                      className="w-6 h-6 inline-flex items-center justify-center text-slate-400 hover:text-white rounded-md transition hover:bg-slate-800"
+                      title={isAssistant ? 'Unpin card' : 'Открепить карточку'}
+                      aria-label={isAssistant ? 'Unpin card' : 'Открепить карточку'}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="text-slate-200 select-text">
+              <div
+                id={`info-card-overlay-edge-body-${targetEdge.id}`}
+                className="text-slate-200 select-text min-h-0 flex-none overflow-y-auto overscroll-contain pr-1"
+              >
                 {renderMarkdownFormatted(badgeRawContent, bodyFontSize, Math.round(bodyFontSize * 1.45))}
               </div>
             </div>
