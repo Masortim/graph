@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import type { GraphNode, GraphEdge, AppMode } from '../types/graph';
 import { 
   X, 
@@ -20,7 +20,7 @@ import {
   BookOpen 
 } from 'lucide-react';
 import { calculateNodeSizeLevel } from '../utils/nodeMetrics';
-import { renderLatexPreviewToHtml } from '../utils/latexRenderer';
+import { renderLatexToHtml } from '../utils/latexRenderer';
 import { tokenizeLine, BADGE_SQUARE_COLORS } from '../utils/badgeFormatter';
 import { LatexHelpModal } from './LatexHelpModal';
 
@@ -88,10 +88,6 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
   const isOriginalNode = !node.isAssistantProposal;
   const isTitleReadOnly = isAssistant && isOriginalNode;
 
-  // The Assistant inspector is rendered in English; the original Russian wording is preserved
-  // for any other mode that may reuse this component.
-  const t = (en: string, ru: string) => (isAssistant ? en : ru);
-
   // 1. Info Badge Editing State & Ref
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [infoContent, setInfoContent] = useState(node.infoBadge?.content || '');
@@ -129,43 +125,27 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
   const [newPhraseInput, setNewPhraseInput] = useState('');
   const [currentPhrases, setCurrentPhrases] = useState<string[]>(node.keyPhrases || []);
 
-  // Close the inline editors only when ANOTHER node becomes selected.
-  // This effect must not depend on the node's own properties: the live preview of a color or
-  // size change updates the node in the graph while its editor is open, and that editor has to
-  // stay open until the user presses OK or Cancel.
+  // Synchronize internal state whenever the selected node changes
   useEffect(() => {
     setIsEditingInfo(false);
+    setInfoContent(node.infoBadge?.content || '');
     setIsEditingProperties(false);
-    setIsEditingPhrases(false);
-  }, [node.id]);
-
-  // Keep the properties editor in sync with the node while the editor is CLOSED. While it is
-  // open, the editor owns its state, so live preview updates never reset or close it.
-  useEffect(() => {
-    if (isEditingProperties) return;
     setLabelEn(node.labelEn);
     setLabelCn(node.labelCn || '');
     setSelectedColor(node.color);
-    setCustomSizeLevel(effectiveSizeLevel);
+    const effSize = node.customSizeLevel !== undefined 
+      ? node.customSizeLevel 
+      : calculateNodeSizeLevel(node, node.connectedCount || 0, node.frequency || 0);
+    setCustomSizeLevel(effSize);
+    setIsEditingPhrases(false);
+    setCurrentPhrases(node.keyPhrases || []);
     originalPropertiesRef.current = {
       labelEn: node.labelEn,
       labelCn: node.labelCn || '',
       color: node.color,
       customSizeLevel: node.customSizeLevel,
     };
-  }, [node.id, node.labelEn, node.labelCn, node.color, node.customSizeLevel, effectiveSizeLevel, isEditingProperties]);
-
-  // Keep the note card editor in sync while it is closed (Cancel therefore discards typed text)
-  useEffect(() => {
-    if (isEditingInfo) return;
-    setInfoContent(node.infoBadge?.content || '');
-  }, [node.id, node.infoBadge?.content, isEditingInfo]);
-
-  // Keep the key phrases list in sync while its editor is closed
-  useEffect(() => {
-    if (isEditingPhrases) return;
-    setCurrentPhrases(node.keyPhrases || []);
-  }, [node.id, node.keyPhrases, isEditingPhrases]);
+  }, [node.id, node.labelEn, node.labelCn, node.color, node.customSizeLevel, node.infoBadge?.content, node.keyPhrases, node.connectedCount, node.frequency, node]);
 
   // Connected Edges & Neighbor Nodes
   const connectedEdges = useMemo(() => {
@@ -193,11 +173,11 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
       }
       const segments = tokenizeLine(line);
       return (
-        <div key={lineIdx} className="card-preview-line min-h-[1.25em] my-0.5 leading-relaxed flex items-center flex-wrap gap-x-1 min-w-0 max-w-full">
+        <div key={lineIdx} className="my-1 leading-relaxed text-slate-300 break-words whitespace-normal text-xs">
           {segments.map((seg, segIdx) => {
             if (seg.type === 'bold') {
               return (
-                <strong key={segIdx} className="font-bold text-white min-w-0 break-words">
+                <strong key={segIdx} className="font-bold text-white inline mr-1">
                   {seg.text}
                 </strong>
               );
@@ -206,11 +186,11 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
               return (
                 <span
                   key={segIdx}
-                  className="inline-block shadow-sm shrink-0 mx-0.5 align-middle"
+                  className="inline-block rounded-[3px] shadow-sm shrink-0 mx-1 align-middle"
                   style={{
                     backgroundColor: seg.squareColor || BADGE_SQUARE_COLORS.yellow,
-                    width: '1.2em',
-                    height: '1.2em',
+                    width: '1.15em',
+                    height: '1.15em',
                   }}
                 />
               );
@@ -220,13 +200,13 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
               return (
                 <span
                   key={segIdx}
-                  className="card-preview-formula inline-block min-w-0 max-w-full px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
-                  dangerouslySetInnerHTML={{ __html: renderLatexPreviewToHtml(rawLatex) }}
+                  className="katex-modal-wrap inline px-1 py-0.5 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle mx-0.5 break-words"
+                  dangerouslySetInnerHTML={{ __html: renderLatexToHtml(rawLatex) }}
                 />
               );
             }
             return (
-              <span key={segIdx} className="text-slate-300 min-w-0 break-words">
+              <span key={segIdx} className="text-slate-300 inline break-words">
                 {seg.text}
               </span>
             );
@@ -317,17 +297,11 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
   };
 
   const handleClearInfo = () => {
-    if (window.confirm(t('Clear the node card?', 'Очистить карточку узла?'))) {
+    if (window.confirm('Очистить карточку узла?')) {
       setInfoContent('');
       onUpdateInfoBadge(node.id, '');
       setIsEditingInfo(false);
     }
-  };
-
-  const handleCancelInfo = () => {
-    // Discard the typed text; the sync effect restores the saved card content
-    setInfoContent(node.infoBadge?.content || '');
-    setIsEditingInfo(false);
   };
 
   // Handlers for Properties (Live preview on color / size change)
@@ -362,35 +336,6 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
     setIsEditingProperties(false);
   };
 
-  /**
-   * Reverts a live color / size preview that was never confirmed with OK.
-   * `customSizeLevel` is passed through even when it is `undefined`, which clears the manual
-   * override and returns the node to its automatically calculated size.
-   */
-  const revertUnconfirmedPreview = useCallback(() => {
-    if (!onPreviewProperties) return;
-    const orig = originalPropertiesRef.current;
-    const colorChanged = node.color !== orig.color;
-    const sizeChanged = (node.customSizeLevel ?? undefined) !== (orig.customSizeLevel ?? undefined);
-    if (!colorChanged && !sizeChanged) return;
-    onPreviewProperties(node.id, {
-      color: orig.color,
-      customSizeLevel: orig.customSizeLevel,
-    });
-  }, [node.id, node.color, node.customSizeLevel, onPreviewProperties]);
-
-  // Keep the latest revert function for the unmount cleanup below
-  const revertPreviewRef = useRef(revertUnconfirmedPreview);
-  revertPreviewRef.current = revertUnconfirmedPreview;
-
-  // When the inspector goes away (closed, another node selected, fullscreen toggled) an
-  // unconfirmed preview is dropped, so only OK ever persists a color / size change.
-  useEffect(() => {
-    return () => {
-      revertPreviewRef.current();
-    };
-  }, []);
-
   const handleCancelProperties = () => {
     const orig = originalPropertiesRef.current;
     setLabelEn(orig.labelEn);
@@ -398,15 +343,14 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
     setSelectedColor(orig.color);
     setCustomSizeLevel(orig.customSizeLevel !== undefined ? orig.customSizeLevel : effectiveSizeLevel);
 
-    // Revert the live canvas preview to the original values
-    revertUnconfirmedPreview();
+    // Revert visual canvas preview to original values
+    if (onPreviewProperties) {
+      onPreviewProperties(node.id, { 
+        color: orig.color, 
+        customSizeLevel: orig.customSizeLevel 
+      });
+    }
     setIsEditingProperties(false);
-  };
-
-  // Closing the inspector behaves like Cancel for an unconfirmed color / size preview
-  const handleClose = () => {
-    revertUnconfirmedPreview();
-    onClose();
   };
 
   // Handlers for Key Phrases
@@ -458,9 +402,9 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
           </div>
         </div>
         <button
-          onClick={handleClose}
+          onClick={onClose}
           className="text-slate-400 hover:text-slate-200 p-1 hover:bg-slate-800 rounded-lg transition shrink-0"
-          title={t('Close', 'Закрыть')}
+          title="Закрыть"
         >
           <X className="w-4 h-4" />
         </button>
@@ -474,11 +418,11 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
           <div className="bg-indigo-950/70 border border-indigo-700/60 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between text-indigo-300 font-semibold">
               <span className="flex items-center gap-1.5">
-                <GitMerge className="w-3.5 h-3.5" /> {t('Merged Node', 'Объединенный узел')}
+                <GitMerge className="w-3.5 h-3.5" /> Объединенный узел
               </span>
             </div>
             <p className="text-[11px] text-slate-300">
-              {t('Created from', 'Создан из')} «<strong>{node.mergedFrom.nodeALabel}</strong>» {t('and', 'и')} «<strong>{node.mergedFrom.nodeBLabel}</strong>» ({node.mergedFrom.date.slice(0, 10)})
+              Создан из «<strong>{node.mergedFrom.nodeALabel}</strong>» и «<strong>{node.mergedFrom.nodeBLabel}</strong>» ({node.mergedFrom.date.slice(0, 10)})
             </p>
             {onUnmergeNode && (
               <div className="flex gap-2 pt-1">
@@ -487,7 +431,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={() => onUnmergeNode(node.id)}
                   className="flex-1 py-1 px-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium flex items-center justify-center gap-1 text-[11px] transition shadow"
                 >
-                  <Undo2 className="w-3 h-3" /> {t('Unmerge Both Nodes', 'Разъединить оба узла')}
+                  <Undo2 className="w-3 h-3" /> Разъединить оба узла
                 </button>
               </div>
             )}
@@ -498,14 +442,14 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-3">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-sky-400" /> {t('Node Properties & Size', 'Свойства и размер узла')}
+              <Palette className="w-3.5 h-3.5 text-sky-400" /> Свойства и размер узла
             </span>
             {!isEditingProperties ? (
               <button
                 type="button"
                 onClick={() => setIsEditingProperties(true)}
                 className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                title={t('Edit properties', 'Редактировать свойства')}
+                title="Редактировать свойства"
               >
                 <Edit3 className="w-3.5 h-3.5" />
               </button>
@@ -516,7 +460,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={handleCancelProperties}
                   className="px-2 py-0.5 text-slate-400 hover:text-slate-200 rounded"
                 >
-                  {t('Cancel', 'Отмена')}
+                  Отмена
                 </button>
                 <button
                   type="button"
@@ -573,7 +517,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
 
               {/* Color Selection with Live Preview */}
               <div>
-                <label className="text-[11px] text-slate-400 mb-1.5 block">{t('Node color:', 'Цвет узла:')}</label>
+                <label className="text-[11px] text-slate-400 mb-1.5 block">Цвет узла:</label>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {COLOR_PALETTE.map(c => (
                     <button
@@ -593,7 +537,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                     value={selectedColor}
                     onChange={e => handleColorChange(e.target.value)}
                     className="w-5 h-5 rounded cursor-pointer bg-transparent border-0 ml-auto"
-                    title={t('Custom color', 'Произвольный цвет')}
+                    title="Произвольный цвет"
                   />
                 </div>
               </div>
@@ -601,9 +545,9 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
               {/* Size Level Slider (1 to 9) with Live Preview */}
               <div>
                 <div className="flex justify-between text-slate-400 mb-1">
-                  <span>{t('Node size (level 1–9):', 'Размер узла (уровень 1–9):')}</span>
+                  <span>Размер узла (уровень 1–9):</span>
                   <span className="font-mono text-sky-400 font-bold">
-                    {t('Level', 'Уровень')} {customSizeLevel} (R: {10 + customSizeLevel * 2.8}px)
+                    Уровень {customSizeLevel} (R: {10 + customSizeLevel * 2.8}px)
                   </span>
                 </div>
                 <input
@@ -616,22 +560,22 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   className="w-full accent-sky-500 bg-slate-800 rounded h-1.5 cursor-pointer"
                 />
                 <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-                  <span>1 ({t('Minimum', 'Минимум')})</span>
-                  <span>5 ({t('Medium', 'Средний')})</span>
-                  <span>9 ({t('Maximum', 'Максимум')})</span>
+                  <span>1 (Минимум)</span>
+                  <span>5 (Средний)</span>
+                  <span>9 (Максимум)</span>
                 </div>
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-                <span className="text-slate-400 block">{t('Node size:', 'Размер узла:')}</span>
+                <span className="text-slate-400 block">Размер узла:</span>
                 <span className="font-semibold text-slate-200">
-                  {t('Level', 'Уровень')} {effectiveSizeLevel} (R: {Math.round(node.radius || 16)}px)
+                  Уровень {effectiveSizeLevel} (R: {Math.round(node.radius || 16)}px)
                 </span>
               </div>
               <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-                <span className="text-slate-400 block">{t('Connections:', 'Связей:')}</span>
+                <span className="text-slate-400 block">Связей:</span>
                 <span className="font-semibold text-slate-200">
                   {node.connectedCount || connectedEdges.length}
                 </span>
@@ -644,7 +588,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-3">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-sky-400 flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5" /> {t('Information Card', 'Информационная карточка')}
+              <Info className="w-3.5 h-3.5" /> Информационная карточка
             </span>
 
             <div className="flex items-center gap-1.5">
@@ -655,7 +599,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={handleZoomBadgeOut}
                   disabled={badgeScale <= 1.0}
                   className="text-slate-400 hover:text-sky-300 disabled:opacity-30 transition p-0.5"
-                  title={t('Zoom out (-25%)', 'Уменьшить (-25%)')}
+                  title="Уменьшить (-25%)"
                 >
                   <MinusCircle className="w-3.5 h-3.5" />
                 </button>
@@ -667,7 +611,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={handleZoomBadgeIn}
                   disabled={badgeScale >= 3.0}
                   className="text-slate-400 hover:text-sky-300 disabled:opacity-30 transition p-0.5"
-                  title={t('Zoom in (+25%)', 'Увеличить (+25%)')}
+                  title="Увеличить (+25%)"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                 </button>
@@ -678,7 +622,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   type="button"
                   onClick={() => setIsEditingInfo(true)}
                   className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                  title={t('Edit card', 'Редактировать карточку')}
+                  title="Редактировать карточку"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                 </button>
@@ -735,7 +679,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                 value={infoContent}
                 onChange={e => setInfoContent(e.target.value)}
                 rows={5}
-                placeholder={t('Enter the card text ($LaTeX$, **bold**, 🟨 🟦 🟩)...', 'Введите текст карточки ($LaTeX$, **жирный**, 🟨 🟦 🟩)...')}
+                placeholder="Введите текст карточки ($LaTeX$, **жирный**, 🟨 🟦 🟩)..."
                 className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 text-xs focus:outline-none focus:border-sky-500 resize-y font-sans leading-relaxed"
               />
 
@@ -745,34 +689,34 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={handleClearInfo}
                   className="text-red-400 hover:text-red-300 text-[11px] flex items-center gap-1"
                 >
-                  <Trash2 className="w-3 h-3" /> {t('Clear', 'Очистить')}
+                  <Trash2 className="w-3 h-3" /> Очистить
                 </button>
 
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={handleCancelInfo}
+                    onClick={() => setIsEditingInfo(false)}
                     className="px-2.5 py-1 text-slate-400 hover:text-slate-200"
                   >
-                    {t('Cancel', 'Отмена')}
+                    Отмена
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveInfo}
                     className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-medium flex items-center gap-1 shadow"
                   >
-                    <Check className="w-3.5 h-3.5" /> {t('Save', 'Сохранить')}
+                    <Check className="w-3.5 h-3.5" /> Сохранить
                   </button>
                 </div>
               </div>
             </div>
           ) : node.infoBadge?.content ? (
             <div 
-              className="bg-slate-900/90 p-3 border text-xs space-y-1 shadow-sm rounded-lg"
+              className="bg-slate-900/90 p-3 border text-xs space-y-1 shadow-sm rounded-lg overflow-hidden break-words"
               style={{ borderColor: node.color + '88' }}
             >
               <div 
-                className="font-bold text-xs leading-tight"
+                className="font-bold text-xs leading-tight break-words"
                 style={{ color: node.color }}
               >
                 {node.labelEn} {node.labelCn && node.labelCn !== node.labelEn ? `| ${node.labelCn}` : ''}
@@ -785,7 +729,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
             </div>
           ) : (
             <p className="text-slate-500 italic text-[11px]">
-              {t('No card is attached to this node. Press the edit button to add a note with formulas.', 'К этому узлу не прикреплена карточка. Нажмите кнопку редактирования чтобы добавить заметку с формулами.')}
+              К этому узлу не прикреплена карточка. Нажмите кнопку редактирования чтобы добавить заметку с формулами.
             </p>
           )}
         </div>
@@ -794,14 +738,14 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-sky-400" /> {t('Key Phrases', 'Ключевые фразы')} ({currentPhrases.length})
+              <Tag className="w-3.5 h-3.5 text-sky-400" /> Ключевые фразы ({currentPhrases.length})
             </span>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => onUpdateNodeFrequencyAndSize(node.id)}
                 className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                title={t('Recalculate the phrase frequency across the whole vault', 'Пересчитать частоту фраз во всем хранилище')}
+                title="Пересчитать частоту фраз во всем хранилище"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
@@ -809,7 +753,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                 type="button"
                 onClick={() => setIsEditingPhrases(!isEditingPhrases)}
                 className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                title={t('Edit key phrases', 'Редактировать ключевые фразы')}
+                title="Редактировать ключевые фразы"
               >
                 <Edit3 className="w-3.5 h-3.5" />
               </button>
@@ -840,7 +784,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
             <div className="flex gap-2 pt-1">
               <input
                 type="text"
-                placeholder={t('New phrase...', 'Новая фраза...')}
+                placeholder="Новая фраза..."
                 value={newPhraseInput}
                 onChange={e => setNewPhraseInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddPhrase()}
@@ -851,7 +795,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                 onClick={handleAddPhrase}
                 className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-medium text-xs flex items-center gap-1"
               >
-                <Plus className="w-3.5 h-3.5" /> {t('Add', 'Добавить')}
+                <Plus className="w-3.5 h-3.5" /> Добавить
               </button>
             </div>
           )}
@@ -861,14 +805,14 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-              <Link2 className="w-3.5 h-3.5 text-sky-400" /> {t('Connected Nodes', 'Связанные узлы')} ({neighborNodes.length})
+              <Link2 className="w-3.5 h-3.5 text-sky-400" /> Связанные узлы ({neighborNodes.length})
             </span>
             <button
               type="button"
               onClick={() => onOpenAddEdgeModal(node.id)}
               className="px-2 py-0.5 bg-sky-950 hover:bg-sky-900 border border-sky-700 text-sky-300 rounded font-medium text-[11px] flex items-center gap-1 transition"
             >
-              <Plus className="w-3 h-3" /> {t('Add Connection', 'Добавить связь')}
+              <Plus className="w-3 h-3" /> Добавить связь
             </button>
           </div>
 
@@ -899,12 +843,12 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm(t(`Delete the connection with «${neighbor.labelEn}»?`, `Удалить связь с «${neighbor.labelEn}»?`))) {
+                      if (window.confirm(`Удалить связь с «${neighbor.labelEn}»?`)) {
                         onDeleteEdge(edge.id);
                       }
                     }}
                     className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 p-1 transition"
-                    title={t('Delete connection', 'Удалить связь')}
+                    title="Удалить связь"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -926,12 +870,12 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
               className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
             >
               <GitMerge className="w-3.5 h-3.5 text-indigo-400" />
-              <span>{t('Merge', 'Объединить')}</span>
+              <span>Объединить</span>
             </button>
             <button
               type="button"
               onClick={() => {
-                if (window.confirm(t(`Delete the node «${node.labelEn}» and all adjacent connections?`, `Удалить узел «${node.labelEn}» и все прилегающие связи?`))) {
+                if (window.confirm(`Удалить узел «${node.labelEn}» и все прилегающие связи?`)) {
                   onDeleteNode(node.id);
                   onClose();
                 }
@@ -947,16 +891,15 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
 
         <button
           type="button"
-          onClick={handleClose}
+          onClick={onClose}
           className="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold transition shadow"
         >
-          {t('Done', 'Готово')}
+          Готово
         </button>
       </div>
 
       {showLatexHelp && (
         <LatexHelpModal
-          mode={mode}
           onClose={() => setShowLatexHelp(false)}
           onInsertSnippet={snippet => {
             insertSnippet(snippet);

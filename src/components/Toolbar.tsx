@@ -115,8 +115,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const hasSearch = searchQuery.trim().length > 0;
   const isStudent = mode === 'student';
   const isAssistant = mode === 'assistant';
-  // Student and Assistant views are English only; Russian is kept for the legacy author view.
-  const isEnglishHelp = isStudent || isAssistant;
 
   return (
     <>
@@ -355,13 +353,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               </button>
             </div>
             <div className="space-y-2 text-slate-300 leading-relaxed">
-              <p>• <strong>{isEnglishHelp ? 'Hover over Node/Edge' : 'Наведение на узел/связь'}</strong>: {isEnglishHelp ? 'Shows informational card and highlights direct connections.' : 'Отображает карточку с формулами и подсвечивает связи.'}</p>
-              <p>• <strong>{isEnglishHelp ? 'Double LMB Click' : 'Двойной клик ЛКМ'}</strong>: {isEnglishHelp ? 'Pins the informational card on the canvas.' : 'Закрепляет / открепляет карточку на холсте.'}</p>
-              <p>• <strong>{isEnglishHelp ? 'Single RMB Click' : 'Одинарный клик ПКМ'}</strong>: {isEnglishHelp ? 'Focuses and opens local subgraph.' : 'Фокусируется и открывает локальный подграф.'}</p>
-              <p>• <strong>{isEnglishHelp ? 'Drag with RMB' : 'Перетаскивание ПКМ'}</strong>: {isEnglishHelp ? 'Pans the canvas.' : 'Панорамирование холста.'}</p>
-              <p>• <strong>{isEnglishHelp ? 'Scroll Wheel' : 'Колесико мыши'}</strong>: {isEnglishHelp ? 'Smooth zoom in / out.' : 'Плавное масштабирование графа.'}</p>
+              <p>• <strong>{isStudent ? 'Hover over Node/Edge' : 'Наведение на узел/связь'}</strong>: {isStudent ? 'Shows informational card and highlights direct connections.' : 'Отображает карточку с формулами и подсвечивает связи.'}</p>
+              <p>• <strong>{isStudent ? 'Double LMB Click' : 'Двойной клик ЛКМ'}</strong>: {isStudent ? 'Pins the informational card on the canvas.' : 'Закрепляет / открепляет карточку на холсте.'}</p>
+              <p>• <strong>{isStudent ? 'Single RMB Click' : 'Одинарный клик ПКМ'}</strong>: {isStudent ? 'Focuses and opens local subgraph.' : 'Фокусируется и открывает локальный подграф.'}</p>
+              <p>• <strong>{isStudent ? 'Drag with RMB' : 'Перетаскивание ПКМ'}</strong>: {isStudent ? 'Pans the canvas.' : 'Панорамирование холста.'}</p>
+              <p>• <strong>{isStudent ? 'Scroll Wheel' : 'Колесико мыши'}</strong>: {isStudent ? 'Smooth zoom in / out.' : 'Плавное масштабирование графа.'}</p>
               {isAssistant && (
-                <p>• <strong>Fix Sections & Pinning</strong>: {isEnglishHelp ? 'Sections are fixed at the coordinates from the coordinates file, concept nodes are grouped around them.' : 'Секции фиксируются на координатах из файла координат, концепты группируются вокруг них.'}</p>
+                <p>• <strong>Fix Sections & Pinning</strong>: Секции фиксируются на координатах из файла координат, концепты группируются вокруг них.</p>
               )}
             </div>
             <div className="pt-2 flex justify-end">
@@ -377,7 +375,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       )}
 
       {showLatexHelp && (
-        <LatexHelpModal mode={mode} onClose={() => setShowLatexHelp(false)} />
+        <LatexHelpModal onClose={() => setShowLatexHelp(false)} />
       )}
     </>
   );

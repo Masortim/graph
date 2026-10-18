@@ -14,7 +14,7 @@ import {
   MinusCircle,
   BookOpen
 } from 'lucide-react';
-import { renderLatexPreviewToHtml } from '../utils/latexRenderer';
+import { renderLatexToHtml } from '../utils/latexRenderer';
 import { tokenizeLine, BADGE_SQUARE_COLORS } from '../utils/badgeFormatter';
 import { LatexHelpModal } from './LatexHelpModal';
 
@@ -276,11 +276,11 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
       }
       const segments = tokenizeLine(line);
       return (
-        <div key={lineIdx} className="card-preview-line min-h-[1.25em] my-0.5 leading-relaxed flex items-center flex-wrap gap-x-1 min-w-0 max-w-full">
+        <div key={lineIdx} className="my-1 leading-relaxed text-slate-300 break-words whitespace-normal text-xs">
           {segments.map((seg, segIdx) => {
             if (seg.type === 'bold') {
               return (
-                <strong key={segIdx} className="font-bold text-white min-w-0 break-words">
+                <strong key={segIdx} className="font-bold text-white inline mr-1">
                   {seg.text}
                 </strong>
               );
@@ -289,11 +289,11 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
               return (
                 <span
                   key={segIdx}
-                  className="inline-block shadow-sm shrink-0 mx-0.5 align-middle"
+                  className="inline-block rounded-[3px] shadow-sm shrink-0 mx-1 align-middle"
                   style={{
                     backgroundColor: seg.squareColor || BADGE_SQUARE_COLORS.yellow,
-                    width: '1.2em',
-                    height: '1.2em',
+                    width: '1.15em',
+                    height: '1.15em',
                   }}
                 />
               );
@@ -303,13 +303,13 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
               return (
                 <span
                   key={segIdx}
-                  className="card-preview-formula inline-block min-w-0 max-w-full px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
-                  dangerouslySetInnerHTML={{ __html: renderLatexPreviewToHtml(rawLatex) }}
+                  className="katex-modal-wrap inline px-1 py-0.5 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle mx-0.5 break-words"
+                  dangerouslySetInnerHTML={{ __html: renderLatexToHtml(rawLatex) }}
                 />
               );
             }
             return (
-              <span key={segIdx} className="text-slate-300 min-w-0 break-words">
+              <span key={segIdx} className="text-slate-300 inline break-words">
                 {seg.text}
               </span>
             );
@@ -339,7 +339,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
         <button
           onClick={onClose}
           className="text-slate-400 hover:text-slate-200 p-1 hover:bg-slate-800 rounded-lg transition shrink-0"
-          title={isAssistant ? 'Close' : 'Закрыть'}
+          title="Закрыть"
         >
           <X className="w-4 h-4" />
         </button>
@@ -424,7 +424,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                 value={color}
                 onChange={e => handleColorChange(e.target.value)}
                 className="w-5 h-5 rounded cursor-pointer bg-transparent border-0 ml-auto"
-                title={isAssistant ? 'Custom color' : 'Произвольный цвет'}
+                title="Произвольный цвет"
               />
             </div>
           </div>
@@ -472,7 +472,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                   onClick={handleZoomBadgeOut}
                   disabled={badgeScale <= 1.0}
                   className="text-slate-400 hover:text-sky-300 disabled:opacity-30 transition p-0.5"
-                  title={isAssistant ? 'Zoom out (-25%)' : 'Уменьшить (-25%)'}
+                  title="Уменьшить (-25%)"
                 >
                   <MinusCircle className="w-3.5 h-3.5" />
                 </button>
@@ -484,7 +484,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                   onClick={handleZoomBadgeIn}
                   disabled={badgeScale >= 3.0}
                   className="text-slate-400 hover:text-sky-300 disabled:opacity-30 transition p-0.5"
-                  title={isAssistant ? 'Zoom in (+25%)' : 'Увеличить (+25%)'}
+                  title="Увеличить (+25%)"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                 </button>
@@ -495,7 +495,7 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                   type="button"
                   onClick={() => setIsEditingInfo(true)}
                   className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                  title={isAssistant ? 'Edit card' : 'Редактировать карточку'}
+                  title="Редактировать карточку"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                 </button>
@@ -562,24 +562,24 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
                   onClick={() => setIsEditingInfo(false)}
                   className="px-2.5 py-1 text-slate-400 hover:text-slate-200"
                 >
-                  {isAssistant ? 'Cancel' : 'Отмена'}
+                  Отмена
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveInfo}
                   className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-medium flex items-center gap-1 shadow"
                 >
-                  <Check className="w-3.5 h-3.5" /> {isAssistant ? 'Save' : 'Сохранить'}
+                  <Check className="w-3.5 h-3.5" /> Сохранить
                 </button>
               </div>
             </div>
           ) : edge.infoBadge?.content ? (
             <div 
-              className="bg-slate-900/90 p-3 border text-xs space-y-1 shadow-sm rounded-lg"
+              className="bg-slate-900/90 p-3 border text-xs space-y-1 shadow-sm rounded-lg overflow-hidden break-words"
               style={{ borderColor: (edge.color || '#94a3b8') + '88' }}
             >
               <div 
-                className="font-bold text-xs leading-tight"
+                className="font-bold text-xs leading-tight break-words"
                 style={{ color: edge.color || '#94a3b8' }}
               >
                 {headerTitle}
@@ -629,7 +629,6 @@ export const EdgeSettingsModal: React.FC<EdgeSettingsModalProps> = ({
 
       {showLatexHelp && (
         <LatexHelpModal
-          mode={mode}
           onClose={() => setShowLatexHelp(false)}
           onInsertSnippet={snippet => {
             insertSnippet(snippet);

@@ -24,47 +24,6 @@ export function renderLatexToHtml(formula: string, isDisplay = false): string {
   }
 }
 
-const wrappedPreviewCache = new Map<string, string>();
-
-/**
- * Render a formula with browser line-break opportunities after math operators. KaTeX
- * normally keeps a formula on one line; the settings-panel preview uses this version
- * so long formulas can wrap inside its narrow card preview.
- */
-export function renderLatexPreviewToHtml(formula: string): string {
-  const cached = wrappedPreviewCache.get(formula);
-  if (cached !== undefined) return cached;
-
-  const rendered = renderLatexToHtml(formula);
-  if (!rendered || typeof document === 'undefined') return rendered;
-
-  const container = document.createElement('div');
-  container.innerHTML = rendered;
-  const operators = container.querySelectorAll<HTMLElement>(
-    '.katex-html .mbin, .katex-html .mrel, .katex-html .mpunct, .katex-html .allowbreak'
-  );
-
-  operators.forEach(operator => {
-    // Do not introduce breaks inside scripts or vertically stacked fraction content.
-    if (operator.closest('.msupsub, .vlist, .frac, .mfrac')) return;
-
-    let breakAfter: Element = operator;
-    let next = breakAfter.nextElementSibling;
-    while (next?.classList.contains('mspace') && !next.classList.contains('katex-newline')) {
-      breakAfter = next;
-      next = next.nextElementSibling;
-    }
-
-    if (breakAfter.nextSibling?.nodeName !== 'WBR') {
-      breakAfter.after(document.createElement('wbr'));
-    }
-  });
-
-  const html = container.innerHTML;
-  wrappedPreviewCache.set(formula, html);
-  return html;
-}
-
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
