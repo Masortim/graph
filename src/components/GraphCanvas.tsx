@@ -1110,7 +1110,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       return (
         <div
           key={lineIdx}
-          className="my-0.5 leading-relaxed flex items-center flex-wrap gap-x-1.5"
+          className="my-0.5 leading-relaxed flex items-center flex-nowrap whitespace-nowrap gap-x-1.5"
           style={{ minHeight: `${bodyFontSize * 1.3}px`, lineHeight: `${lineHeight}px` }}
         >
           {segments.map((seg, segIdx) => {
@@ -1198,6 +1198,27 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     return list;
   }, [edges, pinnedBadgeEdgeIds, hoveredEdgeId]);
 
+  // Keep all possible headers in the card's intrinsic width calculation. The probes are
+  // invisible but still participate in layout, so edge cards reserve space for whichever
+  // localized header (English or Chinese) is wider.
+  const renderHeaderWidthProbes = (titles: string[], fontSize: number) => (
+    <div
+      aria-hidden="true"
+      className="invisible h-0 overflow-hidden pointer-events-none select-none"
+      style={{ width: 'max-content', lineHeight: 0 }}
+    >
+      {titles.map((title, index) => (
+        <div
+          key={`${index}-${title}`}
+          className="block whitespace-nowrap font-bold tracking-wide leading-tight"
+          style={{ fontSize: `${fontSize}px` }}
+        >
+          {title}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div
       ref={containerRef}
@@ -1242,8 +1263,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               id={`info-card-overlay-node-${targetNode.id}`}
               className="absolute left-0 top-0 pointer-events-auto rounded-xl shadow-2xl transition-shadow duration-150 backdrop-blur-md"
               style={{
-                width: `${340 * scaleMul}px`,
-                maxWidth: `${420 * scaleMul}px`,
+                // Intrinsic sizing lets the longest content line (or the title) determine width.
+                width: 'max-content',
                 backgroundColor: 'rgba(10, 15, 29, 0.94)',
                 border: `1.5px solid ${targetNode.color || '#38bdf8'}`,
                 padding: `${cardPadding}px`,
@@ -1251,9 +1272,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 boxShadow: `0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px -3px ${targetNode.color}33`,
               }}
             >
+              {renderHeaderWidthProbes([headerTitle], headerFontSize)}
               <div className="flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800">
                 <div
-                  className="font-bold tracking-wide select-text leading-tight flex-1"
+                  className="font-bold tracking-wide select-text leading-tight whitespace-nowrap"
                   style={{
                     fontSize: `${headerFontSize}px`,
                     color: targetNode.color || '#38bdf8',
@@ -1273,7 +1295,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 )}
               </div>
 
-              <div className="text-slate-200 select-text overflow-hidden">
+              <div className="text-slate-200 select-text">
                 {renderMarkdownFormatted(badgeRawContent, bodyFontSize, Math.round(bodyFontSize * 1.45))}
               </div>
             </div>
@@ -1289,9 +1311,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           if (!firstNode || !secondNode) return null;
 
           const edgeLang = targetEdge.badgeLanguage || 'cn';
-          const label1 = edgeLang === 'en' ? firstNode.labelEn : (firstNode.labelCn || firstNode.labelEn);
-          const label2 = edgeLang === 'en' ? secondNode.labelEn : (secondNode.labelCn || secondNode.labelEn);
-          const headerTitle = `${label1} ↔ ${label2}`;
+          const headerTitleEn = `${firstNode.labelEn} ↔ ${secondNode.labelEn}`;
+          const headerTitleCn = `${firstNode.labelCn || firstNode.labelEn} ↔ ${secondNode.labelCn || secondNode.labelEn}`;
+          const headerTitle = edgeLang === 'en' ? headerTitleEn : headerTitleCn;
 
           const edgeColor = targetEdge.color || '#38bdf8';
           const scaleMul = targetEdge.badgeScale || targetEdge.infoBadge?.scale || 1.0;
@@ -1310,8 +1332,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               id={`info-card-overlay-edge-${targetEdge.id}`}
               className="absolute left-0 top-0 pointer-events-auto rounded-xl shadow-2xl transition-shadow duration-150 backdrop-blur-md"
               style={{
-                width: `${340 * scaleMul}px`,
-                maxWidth: `${420 * scaleMul}px`,
+                // Intrinsic sizing lets the longest content line (or either localized title) determine width.
+                width: 'max-content',
                 backgroundColor: 'rgba(10, 15, 29, 0.94)',
                 border: `1.5px solid ${edgeColor}`,
                 padding: `${cardPadding}px`,
@@ -1319,9 +1341,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 boxShadow: `0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px -3px ${edgeColor}33`,
               }}
             >
+              {renderHeaderWidthProbes([headerTitleEn, headerTitleCn], headerFontSize)}
               <div className="flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800">
                 <div
-                  className="font-bold tracking-wide select-text leading-tight flex-1"
+                  className="font-bold tracking-wide select-text leading-tight whitespace-nowrap"
                   style={{
                     fontSize: `${headerFontSize}px`,
                     color: edgeColor,
@@ -1341,7 +1364,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 )}
               </div>
 
-              <div className="text-slate-200 select-text overflow-hidden">
+              <div className="text-slate-200 select-text">
                 {renderMarkdownFormatted(badgeRawContent, bodyFontSize, Math.round(bodyFontSize * 1.45))}
               </div>
             </div>
