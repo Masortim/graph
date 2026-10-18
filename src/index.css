@@ -53,3 +53,29 @@ html.browser-gesture-guard button {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
 }
+
+/* Long KaTeX formulas in the settings-card previews must wrap inside the narrow panel. */
+.card-preview-line {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.card-preview-formula {
+  min-width: 0 !important;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal !important;
+}
+
+.card-preview-formula .katex,
+.card-preview-formula .katex-html,
+.card-preview-formula .katex-base,
+.card-preview-formula .minner {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal !important;
+}
+
+.card-preview-formula .katex-base {
+  width: auto !important;
+}

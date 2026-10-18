@@ -20,7 +20,7 @@ import {
   BookOpen 
 } from 'lucide-react';
 import { calculateNodeSizeLevel } from '../utils/nodeMetrics';
-import { renderLatexToHtml } from '../utils/latexRenderer';
+import { renderLatexPreviewToHtml } from '../utils/latexRenderer';
 import { tokenizeLine, BADGE_SQUARE_COLORS } from '../utils/badgeFormatter';
 import { LatexHelpModal } from './LatexHelpModal';
 
@@ -193,11 +193,11 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
       }
       const segments = tokenizeLine(line);
       return (
-        <div key={lineIdx} className="min-h-[1.25em] my-0.5 leading-relaxed flex items-center flex-wrap gap-x-1">
+        <div key={lineIdx} className="card-preview-line min-h-[1.25em] my-0.5 leading-relaxed flex items-center flex-wrap gap-x-1 min-w-0 max-w-full">
           {segments.map((seg, segIdx) => {
             if (seg.type === 'bold') {
               return (
-                <strong key={segIdx} className="font-bold text-white">
+                <strong key={segIdx} className="font-bold text-white min-w-0 break-words">
                   {seg.text}
                 </strong>
               );
@@ -220,13 +220,13 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
               return (
                 <span
                   key={segIdx}
-                  className="inline-block px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
-                  dangerouslySetInnerHTML={{ __html: renderLatexToHtml(rawLatex) }}
+                  className="card-preview-formula inline-block min-w-0 max-w-full px-1 py-0.2 rounded bg-slate-900/90 text-sky-200 font-serif text-[11px] shadow-sm align-middle"
+                  dangerouslySetInnerHTML={{ __html: renderLatexPreviewToHtml(rawLatex) }}
                 />
               );
             }
             return (
-              <span key={segIdx} className="text-slate-300">
+              <span key={segIdx} className="text-slate-300 min-w-0 break-words">
                 {seg.text}
               </span>
             );
