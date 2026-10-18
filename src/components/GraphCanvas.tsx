@@ -908,6 +908,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
     // Left Mouse Button (LMB)
     if (e.button === 0) {
+      e.preventDefault();
       lmbStartPos.current = { x: clientX, y: clientY };
       hasLmbMoved.current = false;
       const hitNode = getNodeAtPosition(worldPos.x, worldPos.y);
@@ -922,6 +923,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   // Double Click Handler (LMB): Pins Node or Edge info badge on canvas
   // Decoupled from node inspector menu
   const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     if (clickTimerRef.current) {
       clearTimeout(clickTimerRef.current);
       clickTimerRef.current = null;
@@ -935,14 +939,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
     const hitNode = getNodeAtPosition(worldPos.x, worldPos.y);
     if (hitNode) {
-      e.preventDefault();
       onTogglePinNodeBadge(hitNode.id);
       return;
     }
 
     const hitEdge = getEdgeAtPosition(worldPos.x, worldPos.y);
     if (hitEdge) {
-      e.preventDefault();
       onTogglePinEdgeBadge(hitEdge.id);
       return;
     }
@@ -1016,6 +1018,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
   // Mouse Up
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     if (e.button === 2) {
       isDraggingRMB.current = false;
 
@@ -1194,22 +1197,47 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     return list;
   }, [edges, pinnedBadgeEdgeIds, hoveredEdgeId]);
 
+  // Global prevention of default browser context menu and drag gestures on canvas
+  useEffect(() => {
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      if (isDraggingRMB.current || isDraggingNode.current) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    const handleGlobalDragStart = (e: DragEvent) => {
+      if (isDraggingRMB.current || isDraggingNode.current) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('contextmenu', handleGlobalContextMenu, { capture: true });
+    window.addEventListener('dragstart', handleGlobalDragStart, { capture: true });
+    return () => {
+      window.removeEventListener('contextmenu', handleGlobalContextMenu, { capture: true });
+      window.removeEventListener('dragstart', handleGlobalDragStart, { capture: true });
+    };
+  }, []);
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full select-none overflow-hidden bg-slate-950"
+      className="relative w-full h-full select-none overflow-hidden bg-slate-950 touch-none"
+      style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
       onContextMenu={handleContextMenu}
       onMouseLeave={handleMouseLeave}
+      onDragStart={e => e.preventDefault()}
     >
       <canvas
         ref={canvasRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing block"
+        className="w-full h-full cursor-grab active:cursor-grabbing block touch-none"
+        style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
+        onDragStart={e => e.preventDefault()}
       />
 
       {/* HTML / KaTeX DOM Overlay for Node and Edge Information Cards */}

@@ -347,19 +347,27 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-xs">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-slate-100 text-sm">Linear Algebra Knowledge Graph</h3>
+              <h3 className="font-bold text-slate-100 text-sm">
+                {isAssistant || isStudent ? 'Linear Algebra Knowledge Graph — Help' : 'Граф базы знаний по линейной алгебре — Справка'}
+              </h3>
               <button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="space-y-2 text-slate-300 leading-relaxed">
-              <p>• <strong>{isStudent ? 'Hover over Node/Edge' : 'Наведение на узел/связь'}</strong>: {isStudent ? 'Shows informational card and highlights direct connections.' : 'Отображает карточку с формулами и подсвечивает связи.'}</p>
-              <p>• <strong>{isStudent ? 'Double LMB Click' : 'Двойной клик ЛКМ'}</strong>: {isStudent ? 'Pins the informational card on the canvas.' : 'Закрепляет / открепляет карточку на холсте.'}</p>
-              <p>• <strong>{isStudent ? 'Single RMB Click' : 'Одинарный клик ПКМ'}</strong>: {isStudent ? 'Focuses and opens local subgraph.' : 'Фокусируется и открывает локальный подграф.'}</p>
-              <p>• <strong>{isStudent ? 'Drag with RMB' : 'Перетаскивание ПКМ'}</strong>: {isStudent ? 'Pans the canvas.' : 'Панорамирование холста.'}</p>
-              <p>• <strong>{isStudent ? 'Scroll Wheel' : 'Колесико мыши'}</strong>: {isStudent ? 'Smooth zoom in / out.' : 'Плавное масштабирование графа.'}</p>
+              <p>• <strong>{isAssistant || isStudent ? 'Hover over Node/Edge' : 'Наведение на узел/связь'}</strong>: {isAssistant || isStudent ? 'Shows informational card and highlights direct connections.' : 'Отображает карточку с формулами и подсвечивает связи.'}</p>
               {isAssistant && (
-                <p>• <strong>Fix Sections & Pinning</strong>: Секции фиксируются на координатах из файла координат, концепты группируются вокруг них.</p>
+                <p>• <strong>Single LMB Click</strong>: Opens node or edge properties and note card editor.</p>
+              )}
+              <p>• <strong>{isAssistant || isStudent ? 'Double LMB Click' : 'Двойной клик ЛКМ'}</strong>: {isAssistant || isStudent ? 'Pins or unpins the informational card on the canvas.' : 'Закрепляет / открепляет карточку на холсте.'}</p>
+              {isAssistant && (
+                <p>• <strong>Drag with LMB</strong>: Repositions a node on the canvas.</p>
+              )}
+              <p>• <strong>{isAssistant || isStudent ? 'Single RMB Click' : 'Одинарный клик ПКМ'}</strong>: {isAssistant || isStudent ? 'Focuses and opens local subgraph.' : 'Фокусируется и открывает локальный подграф.'}</p>
+              <p>• <strong>{isAssistant || isStudent ? 'Drag with RMB' : 'Перетаскивание ПКМ'}</strong>: {isAssistant || isStudent ? 'Pans the canvas.' : 'Панорамирование холста.'}</p>
+              <p>• <strong>{isAssistant || isStudent ? 'Scroll Wheel' : 'Колесико мыши'}</strong>: {isAssistant || isStudent ? 'Smooth zoom in / out (scrolls note card when hovering over it).' : 'Плавное масштабирование графа (прокручивает карточку при наведении).'}</p>
+              {isAssistant && (
+                <p>• <strong>Fix Sections & Pinning</strong>: Section nodes are pinned to preset coordinates from the coordinates file, while concept nodes cluster dynamically around them.</p>
               )}
             </div>
             <div className="pt-2 flex justify-end">

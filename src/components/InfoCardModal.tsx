@@ -125,7 +125,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
   const [newPhraseInput, setNewPhraseInput] = useState('');
   const [currentPhrases, setCurrentPhrases] = useState<string[]>(node.keyPhrases || []);
 
-  // Synchronize internal state whenever the selected node changes
+  // Synchronize internal state ONLY when switching to a different node
   useEffect(() => {
     setIsEditingInfo(false);
     setInfoContent(node.infoBadge?.content || '');
@@ -145,7 +145,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
       color: node.color,
       customSizeLevel: node.customSizeLevel,
     };
-  }, [node.id, node.labelEn, node.labelCn, node.color, node.customSizeLevel, node.infoBadge?.content, node.keyPhrases, node.connectedCount, node.frequency, node]);
+  }, [node.id]);
 
   // Connected Edges & Neighbor Nodes
   const connectedEdges = useMemo(() => {
@@ -442,14 +442,15 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-3">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-sky-400" /> Свойства и размер узла
+              <Palette className="w-3.5 h-3.5 text-sky-400" />
+              {isAssistant ? 'Node Properties & Size' : 'Свойства и размер узла'}
             </span>
             {!isEditingProperties ? (
               <button
                 type="button"
                 onClick={() => setIsEditingProperties(true)}
                 className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                title="Редактировать свойства"
+                title={isAssistant ? "Edit properties" : "Редактировать свойства"}
               >
                 <Edit3 className="w-3.5 h-3.5" />
               </button>
@@ -460,14 +461,14 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={handleCancelProperties}
                   className="px-2 py-0.5 text-slate-400 hover:text-slate-200 rounded"
                 >
-                  Отмена
+                  {isAssistant ? 'Cancel' : 'Отмена'}
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveProperties}
                   className="px-2.5 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded font-medium flex items-center gap-1 shadow"
                 >
-                  <Check className="w-3 h-3" /> OK
+                  <Check className="w-3 h-3" /> {isAssistant ? 'OK' : 'OK'}
                 </button>
               </div>
             )}
@@ -517,7 +518,9 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
 
               {/* Color Selection with Live Preview */}
               <div>
-                <label className="text-[11px] text-slate-400 mb-1.5 block">Цвет узла:</label>
+                <label className="text-[11px] text-slate-400 mb-1.5 block">
+                  {isAssistant ? 'Node Color:' : 'Цвет узла:'}
+                </label>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {COLOR_PALETTE.map(c => (
                     <button
@@ -537,7 +540,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                     value={selectedColor}
                     onChange={e => handleColorChange(e.target.value)}
                     className="w-5 h-5 rounded cursor-pointer bg-transparent border-0 ml-auto"
-                    title="Произвольный цвет"
+                    title={isAssistant ? "Custom Color" : "Произвольный цвет"}
                   />
                 </div>
               </div>
@@ -545,9 +548,9 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
               {/* Size Level Slider (1 to 9) with Live Preview */}
               <div>
                 <div className="flex justify-between text-slate-400 mb-1">
-                  <span>Размер узла (уровень 1–9):</span>
+                  <span>{isAssistant ? 'Node Size (level 1–9):' : 'Размер узла (уровень 1–9):'}</span>
                   <span className="font-mono text-sky-400 font-bold">
-                    Уровень {customSizeLevel} (R: {10 + customSizeLevel * 2.8}px)
+                    {isAssistant ? `Level ${customSizeLevel} (R: ${10 + customSizeLevel * 2.8}px)` : `Уровень ${customSizeLevel} (R: ${10 + customSizeLevel * 2.8}px)`}
                   </span>
                 </div>
                 <input
@@ -560,22 +563,22 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   className="w-full accent-sky-500 bg-slate-800 rounded h-1.5 cursor-pointer"
                 />
                 <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-                  <span>1 (Минимум)</span>
-                  <span>5 (Средний)</span>
-                  <span>9 (Максимум)</span>
+                  <span>{isAssistant ? '1 (Min)' : '1 (Минимум)'}</span>
+                  <span>{isAssistant ? '5 (Mid)' : '5 (Средний)'}</span>
+                  <span>{isAssistant ? '9 (Max)' : '9 (Максимум)'}</span>
                 </div>
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-                <span className="text-slate-400 block">Размер узла:</span>
+                <span className="text-slate-400 block">{isAssistant ? 'Node Size:' : 'Размер узла:'}</span>
                 <span className="font-semibold text-slate-200">
-                  Уровень {effectiveSizeLevel} (R: {Math.round(node.radius || 16)}px)
+                  {isAssistant ? `Level ${effectiveSizeLevel} (R: ${Math.round(node.radius || 16)}px)` : `Уровень ${effectiveSizeLevel} (R: ${Math.round(node.radius || 16)}px)`}
                 </span>
               </div>
               <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-                <span className="text-slate-400 block">Связей:</span>
+                <span className="text-slate-400 block">{isAssistant ? 'Connections:' : 'Связей:'}</span>
                 <span className="font-semibold text-slate-200">
                   {node.connectedCount || connectedEdges.length}
                 </span>
@@ -588,7 +591,8 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-3">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-sky-400 flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5" /> Информационная карточка
+              <Info className="w-3.5 h-3.5" />
+              {isAssistant ? 'Information Note Card' : 'Информационная карточка'}
             </span>
 
             <div className="flex items-center gap-1.5">
@@ -599,7 +603,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={handleZoomBadgeOut}
                   disabled={badgeScale <= 1.0}
                   className="text-slate-400 hover:text-sky-300 disabled:opacity-30 transition p-0.5"
-                  title="Уменьшить (-25%)"
+                  title={isAssistant ? "Decrease scale (-25%)" : "Уменьшить (-25%)"}
                 >
                   <MinusCircle className="w-3.5 h-3.5" />
                 </button>
@@ -611,7 +615,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={handleZoomBadgeIn}
                   disabled={badgeScale >= 3.0}
                   className="text-slate-400 hover:text-sky-300 disabled:opacity-30 transition p-0.5"
-                  title="Увеличить (+25%)"
+                  title={isAssistant ? "Increase scale (+25%)" : "Увеличить (+25%)"}
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                 </button>
@@ -622,7 +626,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   type="button"
                   onClick={() => setIsEditingInfo(true)}
                   className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                  title="Редактировать карточку"
+                  title={isAssistant ? "Edit note card" : "Редактировать карточку"}
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                 </button>
@@ -679,7 +683,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                 value={infoContent}
                 onChange={e => setInfoContent(e.target.value)}
                 rows={5}
-                placeholder="Введите текст карточки ($LaTeX$, **жирный**, 🟨 🟦 🟩)..."
+                placeholder={isAssistant ? "Enter card text ($LaTeX$, **bold**, 🟨 🟦 🟩)..." : "Введите текст карточки ($LaTeX$, **жирный**, 🟨 🟦 🟩)..."}
                 className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 text-xs focus:outline-none focus:border-sky-500 resize-y font-sans leading-relaxed"
               />
 
@@ -689,7 +693,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                   onClick={handleClearInfo}
                   className="text-red-400 hover:text-red-300 text-[11px] flex items-center gap-1"
                 >
-                  <Trash2 className="w-3 h-3" /> Очистить
+                  <Trash2 className="w-3 h-3" /> {isAssistant ? 'Clear' : 'Очистить'}
                 </button>
 
                 <div className="flex gap-2">
@@ -698,14 +702,14 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                     onClick={() => setIsEditingInfo(false)}
                     className="px-2.5 py-1 text-slate-400 hover:text-slate-200"
                   >
-                    Отмена
+                    {isAssistant ? 'Cancel' : 'Отмена'}
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveInfo}
                     className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-medium flex items-center gap-1 shadow"
                   >
-                    <Check className="w-3.5 h-3.5" /> Сохранить
+                    <Check className="w-3.5 h-3.5" /> {isAssistant ? 'Save' : 'Сохранить'}
                   </button>
                 </div>
               </div>
@@ -729,7 +733,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
             </div>
           ) : (
             <p className="text-slate-500 italic text-[11px]">
-              К этому узлу не прикреплена карточка. Нажмите кнопку редактирования чтобы добавить заметку с формулами.
+              {isAssistant ? 'No note card attached to this node. Click edit to add notes with formulas.' : 'К этому узлу не прикреплена карточка. Нажмите кнопку редактирования чтобы добавить заметку с формулами.'}
             </p>
           )}
         </div>
@@ -738,14 +742,15 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-sky-400" /> Ключевые фразы ({currentPhrases.length})
+              <Tag className="w-3.5 h-3.5 text-sky-400" />
+              {isAssistant ? `Key Phrases (${currentPhrases.length})` : `Ключевые фразы (${currentPhrases.length})`}
             </span>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => onUpdateNodeFrequencyAndSize(node.id)}
                 className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                title="Пересчитать частоту фраз во всем хранилище"
+                title={isAssistant ? "Recalculate phrase occurrences across vault" : "Пересчитать частоту фраз во всем хранилище"}
               >
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
@@ -753,7 +758,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                 type="button"
                 onClick={() => setIsEditingPhrases(!isEditingPhrases)}
                 className="p-1 text-slate-400 hover:text-sky-300 hover:bg-slate-800 rounded transition"
-                title="Редактировать ключевые фразы"
+                title={isAssistant ? "Edit key phrases" : "Редактировать ключевые фразы"}
               >
                 <Edit3 className="w-3.5 h-3.5" />
               </button>
@@ -784,7 +789,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
             <div className="flex gap-2 pt-1">
               <input
                 type="text"
-                placeholder="Новая фраза..."
+                placeholder={isAssistant ? "New key phrase..." : "Новая фраза..."}
                 value={newPhraseInput}
                 onChange={e => setNewPhraseInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddPhrase()}
@@ -795,7 +800,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
                 onClick={handleAddPhrase}
                 className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-medium text-xs flex items-center gap-1"
               >
-                <Plus className="w-3.5 h-3.5" /> Добавить
+                <Plus className="w-3.5 h-3.5" /> {isAssistant ? 'Add' : 'Добавить'}
               </button>
             </div>
           )}
@@ -805,14 +810,15 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
         <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-              <Link2 className="w-3.5 h-3.5 text-sky-400" /> Связанные узлы ({neighborNodes.length})
+              <Link2 className="w-3.5 h-3.5 text-sky-400" />
+              {isAssistant ? `Connected Neighbors (${neighborNodes.length})` : `Связанные узлы (${neighborNodes.length})`}
             </span>
             <button
               type="button"
               onClick={() => onOpenAddEdgeModal(node.id)}
               className="px-2 py-0.5 bg-sky-950 hover:bg-sky-900 border border-sky-700 text-sky-300 rounded font-medium text-[11px] flex items-center gap-1 transition"
             >
-              <Plus className="w-3 h-3" /> Добавить связь
+              <Plus className="w-3 h-3" /> {isAssistant ? 'Add Edge' : 'Добавить связь'}
             </button>
           </div>
 
@@ -894,7 +900,7 @@ export const InfoCardModal: React.FC<InfoCardModalProps> = ({
           onClick={onClose}
           className="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold transition shadow"
         >
-          Готово
+          {isAssistant ? 'Done' : 'Готово'}
         </button>
       </div>
 
