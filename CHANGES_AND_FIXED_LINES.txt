@@ -1,24 +1,40 @@
 ================================================================================
 CHANGELOG & MODIFIED FILES SUMMARY - GITHUB GRAPH VERSION 2.01 (UPDATE)
 Version: v2.01
-Date: 2026-10-18
+Date: 2026-10-25
 Release Target: GitHub_Graph_v2.01.zip (root folder: GitHub_Graph_v2.01/)
 ================================================================================
 
 This document details the recent fixes and enhancements applied to the
-Assistant version (https://masortim.github.io/graph/#/assistant/) and GitHub codebase:
+Assistant version (https://masortim.github.io/graph/#/assistant/), Student version,
+and GitHub codebase:
 
 --------------------------------------------------------------------------------
 1. COMPLETED FIXES & ENHANCEMENTS
 --------------------------------------------------------------------------------
 
-1. HEADER HELP MODAL (QUESTION MARK BUTTON):
-   - Replaced all Russian text with clear, accurate English in the Help dialog.
+1. SVG EXPORT LATEX FORMULA RENDERING ENGINE:
+   - Fixed mathematical formulas in pinned note cards rendering as raw LaTeX markup
+     when exporting the graph to SVG format (`Export SVG`).
+   - Implemented an extensive, robust LaTeX-to-Unicode conversion engine in `latexRenderer.ts`:
+     * Full delimiter support: `\left\{`, `\right\}`, `\left[`, `\right]`, `\left(`, `\right)`, `\langle`, `\rangle`, `\|`, `\lVert`, `\rVert`, `\mid`, `\parallel`.
+     * Number sets and blackboard bold symbols: `\mathbb{R}` -> ℝ, `\mathbb{C}` -> ℂ, `\mathbb{F}` -> 𝔽, `\mathbb{Z}` -> ℤ, `\mathbb{N}` -> ℕ, `\mathbb{Q}` -> ℚ, `\mathbb{K}` -> 𝕂, `\mathbb{P}` -> ℙ.
+     * Calligraphic sets: `\mathcal{P}` -> 𝒫, `\mathcal{V}` -> 𝒱, `\mathcal{B}` -> ℬ, `\mathcal{L}` -> ℒ, `\mathcal{S}` -> 𝒮, `\mathcal{M}` -> ℳ.
+     * Ellipses and dots: `\ldots`, `\cdots`, `\dots` -> …, `\vdots` -> ⋮, `\ddots` -> ⋱.
+     * Spacing commands: `\,`, `\;`, `\:`, `\!`, `\quad`, `\qquad`.
+     * Operators and functions: `\det`, `\dim`, `\ker`, `\im`, `\rank`, `\tr`, `\span`, `\deg`, `\exp`, `\ln`, `\log`, `\sin`, `\cos`, `\tan`, `\max`, `\min`, `\adj`, `\diag`, `\operatorname{...}`.
+     * Complete Greek alphabet: lowercase (`\alpha`, `\beta`, `\gamma`, `\delta`, `\lambda`, `\sigma`, `\theta`, `\omega`, `\phi`, `\varphi`, etc.) and uppercase (`\Gamma`, `\Delta`, `\Lambda`, `\Sigma`, `\Omega`, `\Phi`, etc.).
+     * Relations & symbols: `\top` -> ⊤, `\perp` -> ⊥, `\otimes` -> ⊗, `\oplus` -> ⊕, `\pm` -> ±, `\mp` -> ∓, `\neq` -> ≠, `\le` / `\leq` -> ≤, `\ge` / `\geq` -> ≥, `\approx` -> ≈, `\equiv` -> ≡, `\in` -> ∈, `\notin` -> ∉, `\subset` -> ⊂, `\subseteq` -> ⊆, `\forall` -> ∀, `\exists` -> ∃, `\implies` -> ⇒, `\iff` -> ⇔, `\to` -> →, `\partial` -> ∂, `\nabla` -> ∇, `\sum` -> ∑, `\prod` -> ∏, `\int` -> ∫.
+     * Balanced brace handling for nested fractions (`\frac{a}{b}`), roots (`\sqrt{...}`), subscripts (`_{...}`), superscripts (`^{...}`), and text wrappers (`\text{...}`, `\mathbf{...}`).
+   - Pinned cards exported to SVG now render authentic, readable mathematical typography across all vector spaces, matrices, linear operators, eigenvalues, Gram matrices, and polynomial expressions.
+
+2. HEADER HELP MODAL (QUESTION MARK BUTTON):
+   - Replaced all Russian text with clear, accurate English in the Help dialog for Assistant mode.
    - Accurately details LMB inspection, LMB dragging, double-click pinning,
      RMB local subgraph, RMB canvas panning, mouse wheel scrolling, and section coordinates.
    - Student mode (`#/viewer/`) preserves its standard instructions.
 
-2. ENGLISH LOCALIZATION IN NODE & EDGE INSPECTORS (InfoCardModal & EdgeSettingsModal):
+3. ENGLISH LOCALIZATION IN NODE & EDGE INSPECTORS (InfoCardModal & EdgeSettingsModal):
    - Fully translated all section headers, labels, tooltips, and action buttons:
      * "Node Properties & Size", "Information Note Card", "Key Phrases", "Connected Neighbors".
      * "Node Color", "Node Size (level 1–9)", "Cancel", "OK / Save", "Clear", "Done".
@@ -28,17 +44,17 @@ Assistant version (https://masortim.github.io/graph/#/assistant/) and GitHub cod
        "Eigenvalues & Eigenvectors", "Powers, Fractions, Norms & Inner Products", "Greek Letters & Mathematical Symbols").
      * Formula descriptions, search bar, syntax rules banner, and action buttons.
 
-3. NODE PROPERTIES LIVE PREVIEW & EDIT MODE PERSISTENCE FIX:
+4. NODE PROPERTIES LIVE PREVIEW & EDIT MODE PERSISTENCE FIX:
    - Fixed premature edit mode exit in `InfoCardModal.tsx`:
      Previously, changing node color or size level slider re-triggered `useEffect`
      due to extra dependencies, immediately closing the properties edit form.
    - Refactored `useEffect` to strictly depend on `[node.id]`.
-   - Now, changing color or dragging the size slider immediately updates the node
+   - Changing color or dragging the size slider immediately updates the node
      live on the canvas while keeping the edit form open.
    - Clicking "OK / Save" applies and persists changes; clicking "Cancel" reverts
      the node back to its original color and size.
 
-4. DISABLED NATIVE BROWSER MOUSE GESTURES & POPUP INTERFERENCES:
+5. DISABLED NATIVE BROWSER MOUSE GESTURES & POPUP INTERFERENCES:
    - Prevented native browser gestures (back/forward navigation, swipe gestures, context menus):
      * Added `e.preventDefault()` on `handleMouseDown` (LMB & RMB), `handleDoubleClick`, and `handleMouseUp`.
      * Added global capturing listeners for `contextmenu` and `dragstart` during dragging.
@@ -47,9 +63,9 @@ Assistant version (https://masortim.github.io/graph/#/assistant/) and GitHub cod
    - Dragging nodes, panning canvas with RMB, and double-clicking to pin cards
      no longer trigger browser menus or gesture navigation on any browser or OS.
 
-5. ADAPTIVE CARD WIDTH & SCROLLBAR / BUTTONS:
-   - Dynamic card width sizing (`max-content`) fitting the longest line or header title.
-   - Scroll controls (Up / Down chevron buttons) and mouse wheel scrolling with styled scrollbar.
+6. PRESERVATION OF EXISTING GRAPH DATA:
+   - Verified that `ActualGraph/graph.json` and `masterGraph.json` remain completely intact,
+     preserving all 15 nodes, 20 edges, positions, weights, and mathematical card contents.
 
 ================================================================================
 VERIFICATION & BUILD CONFIRMATION:
