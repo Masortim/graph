@@ -1,7 +1,7 @@
 import type { GraphNode, GraphEdge, GraphSettings } from '../types/graph';
-import { formatBadgeContent } from './badgeFormatter';
-import { latexToCanvasText } from './latexRenderer';
+import { renderLatexToHtml } from './latexRenderer';
 import defaultGraphConfig from '../data/graphConfig.json';
+import rawKatexCss from 'katex/dist/katex.min.css?inline';
 
 function escapeXml(unsafe: string): string {
   return unsafe
@@ -10,6 +10,134 @@ function escapeXml(unsafe: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+const processedKatexCss = rawKatexCss.replace(
+  /url\(fonts\//g,
+  'url(https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/fonts/'
+);
+
+/**
+ * Parses markdown-like note card content and generates styled HTML with real KaTeX formulas.
+ */
+function renderCardBodyHtml(raw: string, bodyFontSize: number): string {
+  if (!raw) return '';
+  const rawLines = raw.split(/\r?\n/);
+  const pattern = /(\$\$.*?\$\$|\$.*?\$|\*\*.*?\*\*|🟨|🟦|🟩|🟡|🔵|🟢|\[■:(?:yellow|blue|green|gold|cyan)\])/g;
+
+  return rawLines
+    .map(line => {
+      if (!line.trim()) {
+        return `<div style="height: ${Math.round(bodyFontSize * 0.65)}px;"></div>`;
+      }
+      const parts = line.split(pattern);
+      let lineInner = '';
+
+      parts.forEach(part => {
+        if (!part) return;
+        if (
+          (part.startsWith('$$') && part.endsWith('$$') && part.length >= 4) ||
+          (part.startsWith('$') && part.endsWith('$') && part.length >= 2)
+        ) {
+          const isDouble = part.startsWith('$$');
+          const formula = isDouble ? part.slice(2, -2) : part.slice(1, -1);
+          const rendered = renderLatexToHtml(formula, isDouble);
+          lineInner += `<span class="svg-latex-span">${rendered}</span>`;
+        } else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+          lineInner += `<strong style="font-weight: bold; color: #ffffff;">${escapeXml(part.slice(2, -2))}</strong>`;
+        } else if (part === '🟨' || part === '🟡' || part === '[■:yellow]' || part === '[■:gold]') {
+          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.9)}px; height: ${Math.round(bodyFontSize * 0.9)}px; background-color: #fbbf24;"></span>`;
+        } else if (part === '🟦' || part === '🔵' || part === '[■:blue]' || part === '[■:cyan]') {
+          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.9)}px; height: ${Math.round(bodyFontSize * 0.9)}px; background-color: #38bdf8;"></span>`;
+        } else if (part === '🟩' || part === '🟢' || part === '[■:green]') {
+          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.9)}px; height: ${Math.round(bodyFontSize * 0.9)}px; background-color: #22c55e;"></span>`;
+        } else {
+          lineInner += `<span style="color: #cbd5e1;">${escapeXml(part)}</span>`;
+        }
+      });
+
+      return `<div style="margin: 2px 0; line-height: 1.45;">${lineInner}</div>`;
+    })
+    .join('');
+}
+
+/**
+ * Calculates realistic card dimensions for SVG bounding box and foreignObject sizing.
+ */
+function estimateCardSize(
+  rawContent: string,
+  headerTitle: string,
+  bodyFontSize: number,
+  headerFontSize: number,
+  cardPadding: number,
+  scaleMul: number
+): { cardWidth: number; cardHeight: number } {
+  const headerWidth = headerTitle.length * (headerFontSize * 0.58);
+  const headerHeight = headerFontSize + 6 * scaleMul;
+
+  const rawLines = (rawContent || '').split(/\r?\n/);
+  const pattern = /(\$\$.*?\$\$|\$.*?\$|\*\*.*?\*\*|🟨|🟦|🟩|🟡|🔵|🟢|\[■:(?:yellow|blue|green|gold|cyan)\])/g;
+
+  let maxLineWidth = headerWidth;
+  let totalContentHeight = 0;
+  const baseLineHeight = Math.round(bodyFontSize * 1.45);
+
+  rawLines.forEach(line => {
+    if (!line.trim()) {
+      totalContentHeight += Math.round(bodyFontSize * 0.7);
+      return;
+    }
+
+    let currentLineWidth = 0;
+    let currentLineHeight = baseLineHeight;
+    const parts = line.split(pattern);
+
+    parts.forEach(part => {
+      if (!part) return;
+      if (
+        (part.startsWith('$$') && part.endsWith('$$') && part.length >= 4) ||
+        (part.startsWith('$') && part.endsWith('$') && part.length >= 2)
+      ) {
+        const isDouble = part.startsWith('$$');
+        const formula = isDouble ? part.slice(2, -2) : part.slice(1, -1);
+        const rowCount = (formula.match(/\\\\/g) || []).length + 1;
+        if (rowCount > 1) {
+          currentLineHeight = Math.max(currentLineHeight, rowCount * Math.round(bodyFontSize * 1.55) + 12);
+          currentLineWidth += Math.max(80, (formula.length / rowCount) * (bodyFontSize * 0.8) + 40);
+        } else {
+          currentLineHeight = Math.max(currentLineHeight, Math.round(bodyFontSize * 1.35));
+          currentLineWidth += Math.max(40, formula.length * (bodyFontSize * 0.58) + 16);
+        }
+      } else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+        const text = part.slice(2, -2);
+        const zh = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+        currentLineWidth += text.length * (bodyFontSize * 0.62) + zh * (bodyFontSize * 0.45);
+      } else if (
+        part === '🟨' ||
+        part === '🟡' ||
+        part === '🟦' ||
+        part === '🔵' ||
+        part === '🟩' ||
+        part === '🟢' ||
+        part.startsWith('[■:')
+      ) {
+        currentLineWidth += bodyFontSize + 6;
+      } else {
+        const zh = (part.match(/[\u4e00-\u9fa5]/g) || []).length;
+        currentLineWidth += part.length * (bodyFontSize * 0.58) + zh * (bodyFontSize * 0.45);
+      }
+    });
+
+    if (currentLineWidth > maxLineWidth) {
+      maxLineWidth = currentLineWidth;
+    }
+    totalContentHeight += currentLineHeight + 4;
+  });
+
+  const cardWidth = Math.max(260 * scaleMul, Math.min(maxLineWidth + cardPadding * 2 + 16, 750 * scaleMul));
+  const cardHeight = cardPadding + headerHeight + 8 * scaleMul + totalContentHeight + cardPadding;
+
+  return { cardWidth, cardHeight };
 }
 
 export function generateGraphSvg(
@@ -30,14 +158,16 @@ export function generateGraphSvg(
   const defaultThickness = settings.edgeThickness || 1.2;
   const baseOpacity = settings.edgeOpacity || 0.35;
 
-  // Base card styling from config (Header -25%, Body +50%)
+  // Base card styling from config
   const baseCardHeaderSize = defaultGraphConfig?.cardStyles?.headerFontSize || 16.5;
   const baseCardBodySize = defaultGraphConfig?.cardStyles?.bodyFontSize || 16.5;
-  const baseLineHeight = defaultGraphConfig?.cardStyles?.lineHeight || 24;
   const baseCardPadding = defaultGraphConfig?.cardStyles?.cardPadding || 16;
 
   // 1. Initial bounding box of all nodes
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    maxX = -Infinity,
+    minY = Infinity,
+    maxY = -Infinity;
   nodes.forEach(n => {
     const r = n.radius || 16;
     if (n.x - r < minX) minX = n.x - r;
@@ -46,7 +176,7 @@ export function generateGraphSvg(
     if (n.y + r > maxY) maxY = n.y + r;
   });
 
-  // 2. Expand bounding box to include all pinned node badges (Fixes SVG right/bottom edge clipping bug)
+  // 2. Expand bounding box to include all pinned node badges
   pinnedNodeIds.forEach(nodeId => {
     const node = nodeMap.get(nodeId);
     if (!node || node.infoBadge?.content === undefined || node.infoBadge.content === '') return;
@@ -54,18 +184,18 @@ export function generateGraphSvg(
     const scaleMul = node.badgeScale || node.infoBadge?.scale || 1.0;
     const bodyFontSize = baseCardBodySize * scaleMul;
     const headerFontSize = baseCardHeaderSize * scaleMul;
-    const lineHeight = baseLineHeight * scaleMul;
     const cardPadding = baseCardPadding * scaleMul;
     const nodeRadius = node.radius || 16;
 
-    const { lines: formattedLines, maxLineWidth } = formatBadgeContent(node.infoBadge.content, undefined, bodyFontSize);
     const headerTitle = `${node.labelEn}${node.labelCn && node.labelCn !== node.labelEn ? ` | ${node.labelCn}` : ''}`;
-    const headerWidth = headerTitle.length * (headerFontSize * 0.58);
-    const headerHeight = headerFontSize + 6 * scaleMul;
-
-    const contentWidth = Math.max(headerWidth, maxLineWidth);
-    const cardWidth = Math.max(160 * scaleMul, contentWidth + cardPadding * 2);
-    const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
+    const { cardWidth, cardHeight } = estimateCardSize(
+      node.infoBadge.content,
+      headerTitle,
+      bodyFontSize,
+      headerFontSize,
+      cardPadding,
+      scaleMul
+    );
 
     const cardX = node.x + nodeRadius + 16;
     const cardY = node.y - 20;
@@ -90,30 +220,32 @@ export function generateGraphSvg(
     const midX = (src.x + tgt.x) / 2;
     const midY = (src.y + tgt.y) / 2;
 
-    const scaleMul = edge.badgeScale !== undefined 
-      ? edge.badgeScale 
-      : (edge.infoBadge?.scale !== undefined ? edge.infoBadge.scale : 1.0);
+    const scaleMul =
+      edge.badgeScale !== undefined
+        ? edge.badgeScale
+        : edge.infoBadge?.scale !== undefined
+          ? edge.infoBadge.scale
+          : 1.0;
 
     const bodyFontSize = baseCardBodySize * scaleMul;
     const headerFontSize = baseCardHeaderSize * scaleMul;
-    const lineHeight = baseLineHeight * scaleMul;
     const cardPadding = baseCardPadding * scaleMul;
 
     const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;
     const secondNode = firstNode === src ? tgt : src;
     const edgeLang = edge.badgeLanguage || 'cn';
-    const label1 = edgeLang === 'en' ? firstNode.labelEn : (firstNode.labelCn || firstNode.labelEn);
-    const label2 = edgeLang === 'en' ? secondNode.labelEn : (secondNode.labelCn || secondNode.labelEn);
+    const label1 = edgeLang === 'en' ? firstNode.labelEn : firstNode.labelCn || firstNode.labelEn;
+    const label2 = edgeLang === 'en' ? secondNode.labelEn : secondNode.labelCn || secondNode.labelEn;
     const headerTitle = `${label1} ↔ ${label2}`;
 
-    const headerWidth = headerTitle.length * (headerFontSize * 0.58);
-    const headerHeight = headerFontSize + 6 * scaleMul;
-    const maxWrapWidth = Math.max(180 * scaleMul, headerWidth);
-
-    const { lines: formattedLines, maxLineWidth } = formatBadgeContent(edge.infoBadge.content, undefined, bodyFontSize, maxWrapWidth);
-    const contentWidth = Math.max(headerWidth, maxLineWidth);
-    const cardWidth = Math.max(160 * scaleMul, contentWidth + cardPadding * 2);
-    const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
+    const { cardWidth, cardHeight } = estimateCardSize(
+      edge.infoBadge.content,
+      headerTitle,
+      bodyFontSize,
+      headerFontSize,
+      cardPadding,
+      scaleMul
+    );
 
     const cardX = midX + 12 * scaleMul;
     const cardY = midY - cardHeight / 2;
@@ -147,6 +279,45 @@ export function generateGraphSvg(
       <feGaussianBlur stdDeviation="6" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
+
+    <style>
+      <![CDATA[
+      ${processedKatexCss}
+      .svg-card-overlay {
+        box-sizing: border-box;
+        background-color: rgba(10, 15, 29, 0.95);
+        color: #e2e8f0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif;
+        line-height: 1.5;
+        user-select: none;
+        word-break: break-word;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+      }
+      .svg-card-header {
+        font-weight: bold;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .svg-latex-span {
+        display: inline-block;
+        padding: 1px 5px;
+        margin: 1px 0;
+        border-radius: 4px;
+        background-color: rgba(15, 23, 42, 0.9);
+        color: #7dd3fc;
+        vertical-align: middle;
+      }
+      .svg-square-tag {
+        display: inline-block;
+        border-radius: 2px;
+        vertical-align: middle;
+        margin: 0 2px;
+        flex-shrink: 0;
+      }
+      ]]>
+    </style>
 
     <!-- Diagonal Repeating Watermark Pattern (180% Font Size, 110% © symbol height, -30deg angle) -->
     <pattern id="diagonalWatermark" width="520" height="320" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
@@ -211,97 +382,78 @@ export function generateGraphSvg(
     const r = node.radius || 16;
     const color = node.color || '#38bdf8';
 
-    svgContent += `    <circle cx="${node.x.toFixed(1)}" cy="${node.y.toFixed(1)}" r="${r}" fill="${color}" />\n`;
+    svgContent += `    <!-- Node ${escapeXml(node.id)} -->\n`;
+    svgContent += `    <circle cx="${node.x.toFixed(1)}" cy="${node.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${color}" fill-opacity="0.25" filter="url(#nodeGlow)" />\n`;
+    svgContent += `    <circle cx="${node.x.toFixed(1)}" cy="${node.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${color}" />\n`;
+
+    // 3D Sphere Highlight Reflection
+    svgContent += `    <circle cx="${(node.x - r * 0.35).toFixed(1)}" cy="${(node.y - r * 0.35).toFixed(1)}" r="${(r * 0.4).toFixed(1)}" fill="#ffffff" fill-opacity="0.45" />\n`;
+
+    // Information badge indicator badge (small amber dot if has note card)
+    if (node.infoBadge?.content) {
+      const dotRadius = Math.max(3.5, r * 0.22);
+      const dotX = node.x + r * 0.72;
+      const dotY = node.y - r * 0.72;
+      svgContent += `    <circle cx="${dotX.toFixed(1)}" cy="${dotY.toFixed(1)}" r="${dotRadius.toFixed(1)}" fill="#fbbf24" stroke="#0a0d14" stroke-width="1.5" />\n`;
+    }
+
+    // Node Labels
+    const labelFontSize = Math.max(12, r * 0.85);
+    const labelY = node.y + r + labelFontSize + 2;
+
+    if (node.labelCn && node.labelCn !== node.labelEn) {
+      svgContent += `    <text x="${node.x.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="${labelFontSize.toFixed(1)}px" font-weight="bold" fill="#f8fafc" text-anchor="middle" filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.8))">${escapeXml(node.labelEn)}</text>\n`;
+      svgContent += `    <text x="${node.x.toFixed(1)}" y="${(labelY + labelFontSize * 0.95 + 1).toFixed(1)}" font-size="${(labelFontSize * 0.82).toFixed(1)}px" font-weight="normal" fill="#94a3b8" text-anchor="middle" filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.8))">${escapeXml(node.labelCn)}</text>\n`;
+    } else {
+      svgContent += `    <text x="${node.x.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="${labelFontSize.toFixed(1)}px" font-weight="bold" fill="#f8fafc" text-anchor="middle" filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.8))">${escapeXml(node.labelEn)}</text>\n`;
+    }
   });
 
-  svgContent += `  </g>\n\n  <!-- Graph Labels Layer -->\n  <g id="labels">\n`;
+  svgContent += `  </g>\n\n  <!-- Pinned Node Information Badges Layer (Rendered with HTML / KaTeX) -->\n  <g id="pinned-node-badges">\n`;
 
-  // Draw Bilingual Labels
-  if (settings.showLabels) {
-    nodes.forEach(node => {
-      const r = node.radius || 16;
-      const fontSizeEn = Math.max(10, Math.min(22, r * 0.52));
-      const fontSizeCn = Math.max(9, fontSizeEn * 0.85);
-      const labelY = node.y + r + 4;
-
-      const enText = escapeXml(node.labelEn || 'Untitled');
-      const cnText = escapeXml(node.labelCn || '');
-
-      svgContent += `    <text x="${node.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="${fontSizeEn}px" font-weight="600" fill="#f8fafc" style="paint-order: stroke; stroke: #0a0d14; stroke-width: 3px; stroke-linejoin: round;">${enText}</text>\n`;
-
-      if (cnText && cnText !== enText) {
-        svgContent += `    <text x="${node.x.toFixed(1)}" y="${(labelY + fontSizeEn + 2).toFixed(1)}" text-anchor="middle" font-size="${fontSizeCn}px" font-weight="400" fill="#93c5fd" style="paint-order: stroke; stroke: #0a0d14; stroke-width: 3px; stroke-linejoin: round;">${cnText}</text>\n`;
-      }
-    });
-  }
-
-  svgContent += `  </g>\n\n  <!-- Pinned Node Information Badges Layer -->\n  <g id="pinned-node-badges">\n`;
-
-  // Draw Pinned Node Information Badges
+  // Draw Pinned Node Information Badges using foreignObject for full KaTeX math support
   pinnedNodeIds.forEach(nodeId => {
     const node = nodeMap.get(nodeId);
     if (!node || node.infoBadge?.content === undefined || node.infoBadge.content === '') return;
 
     const badgeRawContent = node.infoBadge.content;
-    const nodeRadius = node.radius || 16;
-    
+    const nodeColor = node.color || '#38bdf8';
     const scaleMul = node.badgeScale || node.infoBadge?.scale || 1.0;
+    const nodeRadius = node.radius || 16;
+
     const bodyFontSize = baseCardBodySize * scaleMul;
     const headerFontSize = baseCardHeaderSize * scaleMul;
-    const lineHeight = baseLineHeight * scaleMul;
-    const sqSize = bodyFontSize * 1.25;
     const cardPadding = baseCardPadding * scaleMul;
 
-    const { lines: formattedLines, maxLineWidth } = formatBadgeContent(badgeRawContent, undefined, bodyFontSize);
-
     const headerTitle = `${node.labelEn}${node.labelCn && node.labelCn !== node.labelEn ? ` | ${node.labelCn}` : ''}`;
-    const headerWidth = headerTitle.length * (headerFontSize * 0.58);
-    const headerHeight = headerFontSize + 6 * scaleMul;
-
-    const contentWidth = Math.max(headerWidth, maxLineWidth);
-    const cardWidth = Math.max(160 * scaleMul, contentWidth + cardPadding * 2);
-    const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
+    const { cardWidth, cardHeight } = estimateCardSize(
+      badgeRawContent,
+      headerTitle,
+      bodyFontSize,
+      headerFontSize,
+      cardPadding,
+      scaleMul
+    );
 
     const cardX = node.x + nodeRadius + 16;
     const cardY = node.y - 20;
 
     // Connector dashed line
-    svgContent += `    <line x1="${(node.x + nodeRadius * 0.7).toFixed(1)}" y1="${(node.y - nodeRadius * 0.7).toFixed(1)}" x2="${cardX.toFixed(1)}" y2="${(cardY + cardPadding + headerFontSize / 2).toFixed(1)}" stroke="${node.color}" stroke-width="${(1.4 * scaleMul).toFixed(1)}" stroke-dasharray="3,2" />\n`;
+    svgContent += `    <line x1="${(node.x + nodeRadius * 0.7).toFixed(1)}" y1="${(node.y - nodeRadius * 0.7).toFixed(1)}" x2="${cardX.toFixed(1)}" y2="${(cardY + cardPadding + headerFontSize / 2).toFixed(1)}" stroke="${nodeColor}" stroke-width="${(1.4 * scaleMul).toFixed(1)}" stroke-dasharray="3,2" />\n`;
 
-    // Card background
-    svgContent += `    <rect x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}" rx="${(8 * scaleMul).toFixed(1)}" ry="${(8 * scaleMul).toFixed(1)}" fill="#0f172a" fill-opacity="0.95" stroke="${node.color}" stroke-width="${(1.8 * scaleMul).toFixed(1)}" />\n`;
+    const cardBodyHtml = renderCardBodyHtml(badgeRawContent, bodyFontSize);
 
-    // Header title
-    svgContent += `    <text x="${(cardX + cardPadding).toFixed(1)}" y="${(cardY + cardPadding + headerFontSize * 0.85).toFixed(1)}" font-size="${headerFontSize.toFixed(1)}px" font-weight="bold" fill="${node.color}">${escapeXml(headerTitle)}</text>\n`;
-
-    // Header Separator Line
-    const sepY = cardY + cardPadding + headerFontSize + 4 * scaleMul;
-    svgContent += `    <line x1="${(cardX + cardPadding).toFixed(1)}" y1="${sepY.toFixed(1)}" x2="${(cardX + cardWidth - cardPadding).toFixed(1)}" y2="${sepY.toFixed(1)}" stroke="${node.color}" stroke-opacity="0.3" stroke-width="${(1 * scaleMul).toFixed(1)}" />\n`;
-
-    // Formatted content lines
-    const linesStartY = sepY + 6 * scaleMul;
-    formattedLines.forEach((line, lineIdx) => {
-      let curX = cardX + cardPadding;
-      const lineY = linesStartY + lineIdx * lineHeight;
-
-      line.segments.forEach(seg => {
-        if (seg.type === 'square') {
-          const sqY = lineY - (sqSize - bodyFontSize) / 2 - 1;
-          svgContent += `    <rect x="${curX.toFixed(1)}" y="${sqY.toFixed(1)}" width="${sqSize.toFixed(1)}" height="${sqSize.toFixed(1)}" rx="${(2 * scaleMul).toFixed(1)}" ry="${(2 * scaleMul).toFixed(1)}" fill="${seg.squareColor || '#fbbf24'}" />\n`;
-          curX += sqSize + 4 * scaleMul;
-        } else if (seg.type === 'latex') {
-          const mathTxt = latexToCanvasText(seg.latex || seg.text || '');
-          svgContent += `    <text x="${curX.toFixed(1)}" y="${(lineY + bodyFontSize * 0.85).toFixed(1)}" font-size="${bodyFontSize.toFixed(1)}px" font-style="italic" fill="#7dd3fc">${escapeXml(mathTxt)}</text>\n`;
-          curX += mathTxt.length * (bodyFontSize * 0.62) + 3;
-        } else if (seg.type === 'bold') {
-          svgContent += `    <text x="${curX.toFixed(1)}" y="${(lineY + bodyFontSize * 0.85).toFixed(1)}" font-size="${bodyFontSize.toFixed(1)}px" font-weight="bold" fill="#ffffff">${escapeXml(seg.text || '')}</text>\n`;
-          curX += (seg.width || (seg.text?.length || 0) * (bodyFontSize * 0.62));
-        } else {
-          svgContent += `    <text x="${curX.toFixed(1)}" y="${(lineY + bodyFontSize * 0.85).toFixed(1)}" font-size="${bodyFontSize.toFixed(1)}px" font-weight="normal" fill="#e2e8f0">${escapeXml(seg.text || '')}</text>\n`;
-          curX += (seg.width || (seg.text?.length || 0) * (bodyFontSize * 0.58));
-        }
-      });
-    });
+    // Card foreignObject with KaTeX support
+    svgContent += `    <foreignObject x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}">
+      <div xmlns="http://www.w3.org/1999/xhtml" class="svg-card-overlay" style="width: 100%; height: 100%; border: 1.5px solid ${nodeColor}; border-radius: ${(8 * scaleMul).toFixed(1)}px; padding: ${cardPadding.toFixed(1)}px; box-sizing: border-box;">
+        <div class="svg-card-header" style="font-size: ${headerFontSize.toFixed(1)}px; color: ${nodeColor}; padding-bottom: ${(4 * scaleMul).toFixed(1)}px; margin-bottom: ${(6 * scaleMul).toFixed(1)}px;">
+          ${escapeXml(headerTitle)}
+        </div>
+        <div style="font-size: ${bodyFontSize.toFixed(1)}px;">
+          ${cardBodyHtml}
+        </div>
+      </div>
+    </foreignObject>\n`;
   });
 
   svgContent += `  </g>\n\n  <!-- Pinned Edge Information Badges Layer (Rectangular rx=0) -->\n  <g id="pinned-edge-badges">\n`;
@@ -319,33 +471,33 @@ export function generateGraphSvg(
     const midX = (src.x + tgt.x) / 2;
     const midY = (src.y + tgt.y) / 2;
 
-    const scaleMul = edge.badgeScale !== undefined 
-      ? edge.badgeScale 
-      : (edge.infoBadge?.scale !== undefined ? edge.infoBadge.scale : 1.0);
+    const scaleMul =
+      edge.badgeScale !== undefined
+        ? edge.badgeScale
+        : edge.infoBadge?.scale !== undefined
+          ? edge.infoBadge.scale
+          : 1.0;
 
     const bodyFontSize = baseCardBodySize * scaleMul;
     const headerFontSize = baseCardHeaderSize * scaleMul;
-    const lineHeight = baseLineHeight * scaleMul;
-    const sqSize = bodyFontSize * 1.25;
     const cardPadding = baseCardPadding * scaleMul;
 
     const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;
     const secondNode = firstNode === src ? tgt : src;
 
     const edgeLang = edge.badgeLanguage || 'cn';
-    const label1 = edgeLang === 'en' ? firstNode.labelEn : (firstNode.labelCn || firstNode.labelEn);
-    const label2 = edgeLang === 'en' ? secondNode.labelEn : (secondNode.labelCn || secondNode.labelEn);
+    const label1 = edgeLang === 'en' ? firstNode.labelEn : firstNode.labelCn || firstNode.labelEn;
+    const label2 = edgeLang === 'en' ? secondNode.labelEn : secondNode.labelCn || secondNode.labelEn;
     const headerTitle = `${label1} ↔ ${label2}`;
 
-    const headerWidth = headerTitle.length * (headerFontSize * 0.58);
-    const headerHeight = headerFontSize + 6 * scaleMul;
-    const maxWrapWidth = Math.max(180 * scaleMul, headerWidth);
-
-    const { lines: formattedLines, maxLineWidth } = formatBadgeContent(edge.infoBadge.content, undefined, bodyFontSize, maxWrapWidth);
-
-    const contentWidth = Math.max(headerWidth, maxLineWidth);
-    const cardWidth = Math.max(160 * scaleMul, contentWidth + cardPadding * 2);
-    const cardHeight = cardPadding + headerHeight + formattedLines.length * lineHeight + cardPadding;
+    const { cardWidth, cardHeight } = estimateCardSize(
+      edge.infoBadge.content,
+      headerTitle,
+      bodyFontSize,
+      headerFontSize,
+      cardPadding,
+      scaleMul
+    );
 
     const cardX = midX + 12 * scaleMul;
     const cardY = midY - cardHeight / 2;
@@ -353,40 +505,19 @@ export function generateGraphSvg(
     // Connector dashed line
     svgContent += `    <line x1="${midX.toFixed(1)}" y1="${midY.toFixed(1)}" x2="${cardX.toFixed(1)}" y2="${(cardY + cardPadding + headerFontSize / 2).toFixed(1)}" stroke="${strokeColor}" stroke-width="${(1.4 * scaleMul).toFixed(1)}" stroke-dasharray="2,2" />\n`;
 
-    // Rectangular card background (rx="0")
-    svgContent += `    <rect x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}" rx="0" ry="0" fill="#0f172a" fill-opacity="0.95" stroke="${strokeColor}" stroke-width="${(1.8 * scaleMul).toFixed(1)}" />\n`;
+    const cardBodyHtml = renderCardBodyHtml(edge.infoBadge.content, bodyFontSize);
 
-    // Header title
-    svgContent += `    <text x="${(cardX + cardPadding).toFixed(1)}" y="${(cardY + cardPadding + headerFontSize * 0.85).toFixed(1)}" font-size="${headerFontSize.toFixed(1)}px" font-weight="bold" fill="${strokeColor}">${escapeXml(headerTitle)}</text>\n`;
-
-    // Header Separator Line
-    const sepY = cardY + cardPadding + headerFontSize + 4 * scaleMul;
-    svgContent += `    <line x1="${(cardX + cardPadding).toFixed(1)}" y1="${sepY.toFixed(1)}" x2="${(cardX + cardWidth - cardPadding).toFixed(1)}" y2="${sepY.toFixed(1)}" stroke="${strokeColor}" stroke-opacity="0.3" stroke-width="${(1 * scaleMul).toFixed(1)}" />\n`;
-
-    // Formatted content lines
-    const linesStartY = sepY + 6 * scaleMul;
-    formattedLines.forEach((line, lineIdx) => {
-      let curX = cardX + cardPadding;
-      const lineY = linesStartY + lineIdx * lineHeight;
-
-      line.segments.forEach(seg => {
-        if (seg.type === 'square') {
-          const sqY = lineY - (sqSize - bodyFontSize) / 2 - 1;
-          svgContent += `    <rect x="${curX.toFixed(1)}" y="${sqY.toFixed(1)}" width="${sqSize.toFixed(1)}" height="${sqSize.toFixed(1)}" fill="${seg.squareColor || '#fbbf24'}" />\n`;
-          curX += sqSize + 4 * scaleMul;
-        } else if (seg.type === 'latex') {
-          const mathTxt = latexToCanvasText(seg.latex || seg.text || '');
-          svgContent += `    <text x="${curX.toFixed(1)}" y="${(lineY + bodyFontSize * 0.85).toFixed(1)}" font-size="${bodyFontSize.toFixed(1)}px" font-style="italic" fill="#7dd3fc">${escapeXml(mathTxt)}</text>\n`;
-          curX += mathTxt.length * (bodyFontSize * 0.62) + 3 * scaleMul;
-        } else if (seg.type === 'bold') {
-          svgContent += `    <text x="${curX.toFixed(1)}" y="${(lineY + bodyFontSize * 0.85).toFixed(1)}" font-size="${bodyFontSize.toFixed(1)}px" font-weight="bold" fill="#ffffff">${escapeXml(seg.text || '')}</text>\n`;
-          curX += (seg.width || (seg.text?.length || 0) * (bodyFontSize * 0.62));
-        } else {
-          svgContent += `    <text x="${curX.toFixed(1)}" y="${(lineY + bodyFontSize * 0.85).toFixed(1)}" font-size="${bodyFontSize.toFixed(1)}px" font-weight="normal" fill="#e2e8f0">${escapeXml(seg.text || '')}</text>\n`;
-          curX += (seg.width || (seg.text?.length || 0) * (bodyFontSize * 0.58));
-        }
-      });
-    });
+    // Rectangular card foreignObject (rx="0")
+    svgContent += `    <foreignObject x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}">
+      <div xmlns="http://www.w3.org/1999/xhtml" class="svg-card-overlay" style="width: 100%; height: 100%; border: 1.5px solid ${strokeColor}; border-radius: 0px; padding: ${cardPadding.toFixed(1)}px; box-sizing: border-box;">
+        <div class="svg-card-header" style="font-size: ${headerFontSize.toFixed(1)}px; color: ${strokeColor}; padding-bottom: ${(4 * scaleMul).toFixed(1)}px; margin-bottom: ${(6 * scaleMul).toFixed(1)}px;">
+          ${escapeXml(headerTitle)}
+        </div>
+        <div style="font-size: ${bodyFontSize.toFixed(1)}px;">
+          ${cardBodyHtml}
+        </div>
+      </div>
+    </foreignObject>\n`;
   });
 
   if (includeWatermark) {
