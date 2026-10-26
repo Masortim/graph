@@ -28,7 +28,7 @@ function renderCardBodyHtml(raw: string, bodyFontSize: number): string {
   return rawLines
     .map(line => {
       if (!line.trim()) {
-        return `<div style="height: ${Math.round(bodyFontSize * 0.65)}px;"></div>`;
+        return `<div style="height: ${Math.round(bodyFontSize * 0.75)}px;"></div>`;
       }
       const parts = line.split(pattern);
       let lineInner = '';
@@ -46,25 +46,25 @@ function renderCardBodyHtml(raw: string, bodyFontSize: number): string {
         } else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
           lineInner += `<strong style="font-weight: bold; color: #ffffff;">${escapeXml(part.slice(2, -2))}</strong>`;
         } else if (part === '🟨' || part === '🟡' || part === '[■:yellow]' || part === '[■:gold]') {
-          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.9)}px; height: ${Math.round(bodyFontSize * 0.9)}px; background-color: #fbbf24;"></span>`;
+          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.95)}px; height: ${Math.round(bodyFontSize * 0.95)}px; background-color: #fbbf24;"></span>`;
         } else if (part === '🟦' || part === '🔵' || part === '[■:blue]' || part === '[■:cyan]') {
-          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.9)}px; height: ${Math.round(bodyFontSize * 0.9)}px; background-color: #38bdf8;"></span>`;
+          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.95)}px; height: ${Math.round(bodyFontSize * 0.95)}px; background-color: #38bdf8;"></span>`;
         } else if (part === '🟩' || part === '🟢' || part === '[■:green]') {
-          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.9)}px; height: ${Math.round(bodyFontSize * 0.9)}px; background-color: #22c55e;"></span>`;
+          lineInner += `<span class="svg-square-tag" style="width: ${Math.round(bodyFontSize * 0.95)}px; height: ${Math.round(bodyFontSize * 0.95)}px; background-color: #22c55e;"></span>`;
         } else {
           lineInner += `<span style="color: #cbd5e1;">${escapeXml(part)}</span>`;
         }
       });
 
-      return `<div style="margin: 2px 0; line-height: 1.45;">${lineInner}</div>`;
+      return `<div style="margin: 3px 0; line-height: 1.5;">${lineInner}</div>`;
     })
     .join('');
 }
 
 /**
- * Calculates realistic card dimensions for SVG bounding box and foreignObject sizing.
+ * Calculates wrap-aware card dimensions to ensure complete visibility in SVG export without bottom clipping.
  */
-function estimateCardSize(
+function calculateAccurateCardDimensions(
   rawContent: string,
   headerTitle: string,
   bodyFontSize: number,
@@ -72,26 +72,37 @@ function estimateCardSize(
   cardPadding: number,
   scaleMul: number
 ): { cardWidth: number; cardHeight: number } {
-  const headerWidth = headerTitle.length * (headerFontSize * 0.58);
-  const headerHeight = headerFontSize + 6 * scaleMul;
-
+  const headerWidth = headerTitle.length * (headerFontSize * 0.62) + 24;
   const rawLines = (rawContent || '').split(/\r?\n/);
   const pattern = /(\$\$.*?\$\$|\$.*?\$|\*\*.*?\*\*|🟨|🟦|🟩|🟡|🔵|🟢|\[■:(?:yellow|blue|green|gold|cyan)\])/g;
 
+  // 1. Calculate natural unwrapped width of each line
   let maxLineWidth = headerWidth;
-  let totalContentHeight = 0;
-  const baseLineHeight = Math.round(bodyFontSize * 1.45);
+  const lineMetrics: Array<{
+    type: 'empty' | 'content';
+    height: number;
+    width: number;
+    isMultiLineMath: boolean;
+    mathRowCount: number;
+  }> = [];
 
   rawLines.forEach(line => {
     if (!line.trim()) {
-      totalContentHeight += Math.round(bodyFontSize * 0.7);
+      lineMetrics.push({
+        type: 'empty',
+        height: Math.round(bodyFontSize * 0.75),
+        width: 0,
+        isMultiLineMath: false,
+        mathRowCount: 1,
+      });
       return;
     }
 
-    let currentLineWidth = 0;
-    let currentLineHeight = baseLineHeight;
-    const parts = line.split(pattern);
+    let lineWidth = 0;
+    let isMultiLineMath = false;
+    let mathRowCount = 1;
 
+    const parts = line.split(pattern);
     parts.forEach(part => {
       if (!part) return;
       if (
@@ -100,18 +111,19 @@ function estimateCardSize(
       ) {
         const isDouble = part.startsWith('$$');
         const formula = isDouble ? part.slice(2, -2) : part.slice(1, -1);
-        const rowCount = (formula.match(/\\\\/g) || []).length + 1;
-        if (rowCount > 1) {
-          currentLineHeight = Math.max(currentLineHeight, rowCount * Math.round(bodyFontSize * 1.55) + 12);
-          currentLineWidth += Math.max(80, (formula.length / rowCount) * (bodyFontSize * 0.8) + 40);
+        const rows = (formula.match(/\\\\/g) || []).length + 1;
+        if (rows > 1) {
+          isMultiLineMath = true;
+          mathRowCount = Math.max(mathRowCount, rows);
+          lineWidth += Math.max(90, (formula.length / rows) * (bodyFontSize * 0.85) + 40);
         } else {
-          currentLineHeight = Math.max(currentLineHeight, Math.round(bodyFontSize * 1.35));
-          currentLineWidth += Math.max(40, formula.length * (bodyFontSize * 0.58) + 16);
+          lineWidth += Math.max(45, formula.length * (bodyFontSize * 0.65) + 20);
         }
       } else if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
         const text = part.slice(2, -2);
         const zh = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-        currentLineWidth += text.length * (bodyFontSize * 0.62) + zh * (bodyFontSize * 0.45);
+        const nonZh = text.length - zh;
+        lineWidth += nonZh * (bodyFontSize * 0.62) + zh * (bodyFontSize * 1.05);
       } else if (
         part === '🟨' ||
         part === '🟡' ||
@@ -121,21 +133,55 @@ function estimateCardSize(
         part === '🟢' ||
         part.startsWith('[■:')
       ) {
-        currentLineWidth += bodyFontSize + 6;
+        lineWidth += bodyFontSize * 1.3 + 6;
       } else {
         const zh = (part.match(/[\u4e00-\u9fa5]/g) || []).length;
-        currentLineWidth += part.length * (bodyFontSize * 0.58) + zh * (bodyFontSize * 0.45);
+        const nonZh = part.length - zh;
+        lineWidth += nonZh * (bodyFontSize * 0.58) + zh * (bodyFontSize * 1.0);
       }
     });
 
-    if (currentLineWidth > maxLineWidth) {
-      maxLineWidth = currentLineWidth;
+    if (lineWidth > maxLineWidth) {
+      maxLineWidth = lineWidth;
     }
-    totalContentHeight += currentLineHeight + 4;
+
+    lineMetrics.push({
+      type: 'content',
+      height: 0,
+      width: lineWidth,
+      isMultiLineMath,
+      mathRowCount,
+    });
   });
 
-  const cardWidth = Math.max(260 * scaleMul, Math.min(maxLineWidth + cardPadding * 2 + 16, 750 * scaleMul));
-  const cardHeight = cardPadding + headerHeight + 8 * scaleMul + totalContentHeight + cardPadding;
+  // 2. Determine optimal card width
+  const maxAllowableWidth = 640 * scaleMul;
+  const minAllowableWidth = 280 * scaleMul;
+  const idealContentWidth = Math.max(minAllowableWidth, Math.min(maxLineWidth, maxAllowableWidth));
+  const cardWidth = Math.ceil(idealContentWidth + cardPadding * 2 + 16);
+  const innerUsableWidth = Math.max(200, cardWidth - cardPadding * 2 - 12);
+
+  // 3. Compute total content height considering wrapped lines
+  const singleLineHeight = Math.round(bodyFontSize * 1.55);
+  let totalContentHeight = 0;
+
+  lineMetrics.forEach(m => {
+    if (m.type === 'empty') {
+      totalContentHeight += m.height;
+      return;
+    }
+
+    if (m.isMultiLineMath) {
+      const mathH = m.mathRowCount * Math.round(bodyFontSize * 1.7) + 18;
+      totalContentHeight += mathH + 8;
+    } else {
+      const visualLines = Math.max(1, Math.ceil(m.width / innerUsableWidth));
+      totalContentHeight += visualLines * singleLineHeight + 4;
+    }
+  });
+
+  const headerHeight = Math.round(headerFontSize + 14 * scaleMul);
+  const cardHeight = Math.ceil(cardPadding + headerHeight + totalContentHeight + cardPadding + 28 * scaleMul);
 
   return { cardWidth, cardHeight };
 }
@@ -188,7 +234,7 @@ export function generateGraphSvg(
     const nodeRadius = node.radius || 16;
 
     const headerTitle = `${node.labelEn}${node.labelCn && node.labelCn !== node.labelEn ? ` | ${node.labelCn}` : ''}`;
-    const { cardWidth, cardHeight } = estimateCardSize(
+    const { cardWidth, cardHeight } = calculateAccurateCardDimensions(
       node.infoBadge.content,
       headerTitle,
       bodyFontSize,
@@ -238,7 +284,7 @@ export function generateGraphSvg(
     const label2 = edgeLang === 'en' ? secondNode.labelEn : secondNode.labelCn || secondNode.labelEn;
     const headerTitle = `${label1} ↔ ${label2}`;
 
-    const { cardWidth, cardHeight } = estimateCardSize(
+    const { cardWidth, cardHeight } = calculateAccurateCardDimensions(
       edge.infoBadge.content,
       headerTitle,
       bodyFontSize,
@@ -258,7 +304,7 @@ export function generateGraphSvg(
     if (cardBottom > maxY) maxY = cardBottom;
   });
 
-  const padding = 200;
+  const padding = 250;
   const viewX = Math.floor(minX - padding);
   const viewY = Math.floor(minY - padding);
   const viewWidth = Math.ceil(maxX - minX + padding * 2);
@@ -292,6 +338,7 @@ export function generateGraphSvg(
         user-select: none;
         word-break: break-word;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+        overflow: visible;
       }
       .svg-card-header {
         font-weight: bold;
@@ -426,7 +473,7 @@ export function generateGraphSvg(
     const cardPadding = baseCardPadding * scaleMul;
 
     const headerTitle = `${node.labelEn}${node.labelCn && node.labelCn !== node.labelEn ? ` | ${node.labelCn}` : ''}`;
-    const { cardWidth, cardHeight } = estimateCardSize(
+    const { cardWidth, cardHeight } = calculateAccurateCardDimensions(
       badgeRawContent,
       headerTitle,
       bodyFontSize,
@@ -443,13 +490,13 @@ export function generateGraphSvg(
 
     const cardBodyHtml = renderCardBodyHtml(badgeRawContent, bodyFontSize);
 
-    // Card foreignObject with KaTeX support
-    svgContent += `    <foreignObject x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}">
-      <div xmlns="http://www.w3.org/1999/xhtml" class="svg-card-overlay" style="width: 100%; height: 100%; border: 1.5px solid ${nodeColor}; border-radius: ${(8 * scaleMul).toFixed(1)}px; padding: ${cardPadding.toFixed(1)}px; box-sizing: border-box;">
+    // Card foreignObject with full height and KaTeX support
+    svgContent += `    <foreignObject x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}" style="overflow: visible;">
+      <div xmlns="http://www.w3.org/1999/xhtml" class="svg-card-overlay" style="width: 100%; min-height: 100%; border: 1.5px solid ${nodeColor}; border-radius: ${(8 * scaleMul).toFixed(1)}px; padding: ${cardPadding.toFixed(1)}px; box-sizing: border-box; overflow: visible;">
         <div class="svg-card-header" style="font-size: ${headerFontSize.toFixed(1)}px; color: ${nodeColor}; padding-bottom: ${(4 * scaleMul).toFixed(1)}px; margin-bottom: ${(6 * scaleMul).toFixed(1)}px;">
           ${escapeXml(headerTitle)}
         </div>
-        <div style="font-size: ${bodyFontSize.toFixed(1)}px;">
+        <div style="font-size: ${bodyFontSize.toFixed(1)}px; overflow: visible;">
           ${cardBodyHtml}
         </div>
       </div>
@@ -484,13 +531,12 @@ export function generateGraphSvg(
 
     const firstNode = (src.weight || 0) >= (tgt.weight || 0) ? src : tgt;
     const secondNode = firstNode === src ? tgt : src;
-
     const edgeLang = edge.badgeLanguage || 'cn';
     const label1 = edgeLang === 'en' ? firstNode.labelEn : firstNode.labelCn || firstNode.labelEn;
     const label2 = edgeLang === 'en' ? secondNode.labelEn : secondNode.labelCn || secondNode.labelEn;
     const headerTitle = `${label1} ↔ ${label2}`;
 
-    const { cardWidth, cardHeight } = estimateCardSize(
+    const { cardWidth, cardHeight } = calculateAccurateCardDimensions(
       edge.infoBadge.content,
       headerTitle,
       bodyFontSize,
@@ -508,12 +554,12 @@ export function generateGraphSvg(
     const cardBodyHtml = renderCardBodyHtml(edge.infoBadge.content, bodyFontSize);
 
     // Rectangular card foreignObject (rx="0")
-    svgContent += `    <foreignObject x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}">
-      <div xmlns="http://www.w3.org/1999/xhtml" class="svg-card-overlay" style="width: 100%; height: 100%; border: 1.5px solid ${strokeColor}; border-radius: 0px; padding: ${cardPadding.toFixed(1)}px; box-sizing: border-box;">
+    svgContent += `    <foreignObject x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardWidth.toFixed(1)}" height="${cardHeight.toFixed(1)}" style="overflow: visible;">
+      <div xmlns="http://www.w3.org/1999/xhtml" class="svg-card-overlay" style="width: 100%; min-height: 100%; border: 1.5px solid ${strokeColor}; border-radius: 0px; padding: ${cardPadding.toFixed(1)}px; box-sizing: border-box; overflow: visible;">
         <div class="svg-card-header" style="font-size: ${headerFontSize.toFixed(1)}px; color: ${strokeColor}; padding-bottom: ${(4 * scaleMul).toFixed(1)}px; margin-bottom: ${(6 * scaleMul).toFixed(1)}px;">
           ${escapeXml(headerTitle)}
         </div>
-        <div style="font-size: ${bodyFontSize.toFixed(1)}px;">
+        <div style="font-size: ${bodyFontSize.toFixed(1)}px; overflow: visible;">
           ${cardBodyHtml}
         </div>
       </div>
